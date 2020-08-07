@@ -20,20 +20,10 @@ void setup() {
 
   Serial.begin(9600); 
 
-  lcd.init();                      // initialize the lcd
-  // Print a message to the LCD.
+  lcd.init();
   lcd.backlight();
-	lcd.setCursor(0, 0);
-	lcd.print("TY PIDOR");
 
-  // lcd.setCursor(3, 0);
-  // lcd.print("Hello, world!");
-  // lcd.setCursor(2, 1);
-  // lcd.print("Ywrobot Arduino!");
-  // lcd.setCursor(0, 2);
-  // lcd.print("Arduino LCM IIC 2004");
-  // lcd.setCursor(2, 3);
-  // lcd.print("Power By Ec-yuan!");
+  applyState(0);
 
   enc1.setType(TYPE1);
 }
@@ -42,9 +32,9 @@ void loop() {
 
   enc1.tick();
 
-  if (enc1.isLeft()) menuLeft();
-  if (enc1.isRight()) menuRight();
-  if (enc1.isClick()) enterPage();
+  if (enc1.isLeft()) decState();
+  if (enc1.isRight()) incState();
+  //if (enc1.isClick()) StateSwitch();
 
 
   // if (enc1.isTurn()) {     // если был совершён поворот (индикатор поворота в любую сторону)
