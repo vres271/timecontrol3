@@ -12,22 +12,49 @@ struct State{
 
 State state;
 
-void applyState(unsigned int route) {
-	state.route = route;
-
-	lcd.clear(); 
+void applyState() {
+	//lcd.clear(); 
 	lcd.setCursor(0, 0);
-	lcd.print(route);
-	lcd.setCursor(2, 0);
-	lcd.print(menuTitles[route]);
+	lcd.print("                           ");
+	lcd.setCursor(0, 0);
+	lcd.print(state.route);
+	lcd.print(menuTitles[state.route]);
+	lcd.print("-");
+	lcd.print(state.subroute);
+	if(state.subroute) {
+		lcd.print("->");
+		lcd.print(state.subroute);
+	}
 }
 
 void incState() {
-	if(state.route < 3) applyState(state.route + 1);
+	if(state.subroute) {
+		state.subroute++;
+		applyState();
+	} else {
+		if(state.route < 3) {
+			state.route++;
+			applyState();
+		}
+	}
 }
 
 void decState() {
-	if(state.route > 0) applyState(state.route - 1);
+	if(state.subroute) {
+		state.subroute--;
+		applyState();
+	} else {
+		if(state.route > 0) {
+			lcd.print(">>>>>");
+			state.route--;
+			applyState();
+		}
+	}
+}
+
+void switchState() {
+	state.subroute = 1;
+	applyState();
 }
 
 // void route() {
