@@ -35,19 +35,31 @@ struct State{
 State state;
 
 class Event{
-  byte type = 0;
-  unsigned long payloadLong = 0;
-  unsigned long payloadInt = 0;
-  String payloadString = "";
+  public:
+    boolean absorbed = false;
+    byte type = 0;
+    unsigned long payloadLong = 0;
+    unsigned long payloadInt = 0;
+    String payloadString = "";
+
+    void emit(byte _type=0,unsigned long _payloadLong=0,unsigned long _payloadInt=0) {
+      //if(!absorbed) return;
+      type = _type;
+      payloadLong = _payloadLong;
+      payloadInt = _payloadInt;
+      payloadInt = payloadInt;
+      absorbed = false;
+    }
+
+    void absorb() {
+      absorbed = true;
+    }
+
 };
+
 volatile Event event;
 
-void emitEvent(byte type=0,unsigned long payloadLong=0,unsigned long payloadInt=0) {
-  event.type = type;
-  event.payloadLong = payloadLong;
-  event.payloadInt = payloadInt;
-  //event.payloadString = payloadString;
-}
+
 
 void setup() {
 
@@ -84,27 +96,30 @@ void setup() {
   attachInterrupt(5, onSensor, RISING); 
 }
 
-unsigned long lastSensorOnTime = 0;
 void onSensor() {
   //sensorOnTime = t;
-  emitEvent(1,t,analogRead(LASER_SENS_S));
+  event.emit(1,t,analogRead(LASER_SENS_S));
 }
 
-unsigned long l_lst = 0;
 
 void loop() {
   t = millis();
 
+  if (enc1.isLeft()) event.emit(10);
+  if (enc1.isRight()) event.emit(11);
+  if (enc1.isClick()) event.emit(12);
 
-  if(t > l_lst+300) {
-    lcd.setCursor(0, 2);
-    lcd.print("         ");    
-    lcd.setCursor(0, 2);
-    lcd.print(analogRead(LASER_SENS_S));
-    l_lst = t;
-  }
+  handler();
+  showSensValue();
 
-  if(event.type) {
+  enc1.tick();
+  //eventListener(eventEmmiter());
+}
+
+unsigned long lastSensorOnTime = 0;
+void handler() {
+  if(event.absorbed) return;
+  if(event.type==1) {
     Serial.print(event.type);
     Serial.print("\t");
     Serial.print(event.payloadLong-lastSensorOnTime);
@@ -116,11 +131,63 @@ void loop() {
     lcd.setCursor(0, 1);
     lcd.print(event.payloadLong-lastSensorOnTime);
     lastSensorOnTime = event.payloadLong;
-    event.type = 0;
+    event.absorb();
   }
-  enc1.tick();
-  eventListener(eventEmmiter());
+  if(event.type==10) {
+    lcd.setCursor(0, 3);
+    lcd.print("         ");    
+    lcd.setCursor(0, 3);
+    lcd.print("left");
+    event.absorb();
+  }
+  if(event.type==11) {
+    lcd.setCursor(0, 3);
+    lcd.print("         ");    
+    lcd.setCursor(0, 3);
+    lcd.print("right");
+    event.absorb();
+  }
+  if(event.type==12) {
+    lcd.setCursor(0, 3);
+    lcd.print("         ");    
+    lcd.setCursor(0, 3);
+    lcd.print("click");
+    event.absorb();
+  }
 }
+
+unsigned long l_lst = 0;
+void showSensValue() {
+  if(t > l_lst+300) {
+    lcd.setCursor(0, 2);
+    lcd.print("         ");    
+    lcd.setCursor(0, 2);
+    lcd.print(analogRead(LASER_SENS_S));
+    l_lst = t;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 byte eventEmmiter() {
   if (enc1.isLeft()) return 10;
