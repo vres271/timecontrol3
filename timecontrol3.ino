@@ -4,8 +4,6 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 // ширина дисплея (тут 20 символов)
 // высота дисплея (тут 4 строки)
 
-
-
 #define CLK 2
 #define DT 3
 #define SW 4
@@ -17,7 +15,9 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #define LASER_S 5
 
 #define LASER_SENS_GND 9
+#define LASER_SENS_PWR 8
 #define LASER_SENS_S A7
+#define LASER_SENS_SD 18
 
 unsigned long lastLaserOnTime,  startImpTime, endImpTime, t;
 boolean laserState = false;
@@ -34,6 +34,21 @@ struct State{
 };
 State state;
 
+class Event{
+  byte type = 0;
+  unsigned long payloadLong = 0;
+  unsigned long payloadInt = 0;
+  String payloadString = "";
+};
+volatile Event event;
+
+void emitEvent(byte type=0,unsigned long payloadLong=0,unsigned long payloadInt=0) {
+  event.type = type;
+  event.payloadLong = payloadLong;
+  event.payloadInt = payloadInt;
+  //event.payloadString = payloadString;
+}
+
 void setup() {
 
 
@@ -42,8 +57,8 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  state = menu(state,  state);
-  displayState();
+  //state = menu(state,  state);
+  //displayState();
 
   enc1.setType(TYPE1);
 
@@ -52,22 +67,59 @@ void setup() {
   pinMode(LASER_S, OUTPUT);
 
   pinMode(LASER_SENS_GND, OUTPUT);
+  pinMode(LASER_SENS_PWR, OUTPUT);
   pinMode(LASER_SENS_S, INPUT);
+  pinMode(LASER_SENS_SD, INPUT);
 
   digitalWrite(LASER_PWR, HIGH);
   digitalWrite(LASER_GND, LOW);
   digitalWrite(LASER_S, laserState);
 
   digitalWrite(LASER_SENS_GND, LOW);
+  digitalWrite(LASER_SENS_PWR, HIGH);
 
+  digitalWrite(LASER_S, HIGH);
+
+
+  attachInterrupt(5, onSensor, RISING); 
 }
 
+unsigned long lastSensorOnTime = 0;
+void onSensor() {
+  //sensorOnTime = t;
+  emitEvent(1,t,analogRead(LASER_SENS_S));
+}
+
+unsigned long l_lst = 0;
+
 void loop() {
+  t = millis();
 
+
+  if(t > l_lst+300) {
+    lcd.setCursor(0, 2);
+    lcd.print("         ");    
+    lcd.setCursor(0, 2);
+    lcd.print(analogRead(LASER_SENS_S));
+    l_lst = t;
+  }
+
+  if(event.type) {
+    Serial.print(event.type);
+    Serial.print("\t");
+    Serial.print(event.payloadLong-lastSensorOnTime);
+    Serial.print("\t");
+    Serial.print(event.payloadInt);
+    Serial.print("\t\n");
+    lcd.setCursor(0, 1);
+    lcd.print("         ");    
+    lcd.setCursor(0, 1);
+    lcd.print(event.payloadLong-lastSensorOnTime);
+    lastSensorOnTime = event.payloadLong;
+    event.type = 0;
+  }
   enc1.tick();
-
   eventListener(eventEmmiter());
-
 }
 
 byte eventEmmiter() {
@@ -108,8 +160,8 @@ unsigned long lastLaserSwitchTime, LaserSwitchPeriod=500;
 boolean LaserState=true;
 unsigned int laser0=1, laser1=2, laserA=3;
 void SensorTest() {
-  if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
 
+  if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
     if(LaserState) {
       laser1 = analogRead(LASER_SENS_S);
       lcd.setCursor(14, 2);
@@ -138,7 +190,9 @@ void SensorTest() {
     lcd.print("     ");
     lcd.setCursor(4, 2);
     lcd.print(analogRead(LASER_SENS_S));
+  }
 
+  if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
     LaserState=!LaserState;
     digitalWrite(LASER_S, LaserState);
     lastLaserSwitchTime = millis();
@@ -305,62 +359,3 @@ void menuEnter() {
 
 
 
-
-  // if (enc1.isTurn()) {     // если был совершён поворот (индикатор поворота в любую сторону)
-  //   // ваш код
-  // }
-  
-  // if (enc1.isRight()) {lcd.clear(); lcd.print("Right");  }        // если был поворот
-  // if (enc1.isLeft()) {lcd.clear(); lcd.print("Left"); }  
-  // if (enc1.isRightH()) {lcd.clear(); lcd.print("Right holded"); } // если было удержание + поворот
-  // if (enc1.isLeftH()) {lcd.clear(); lcd.print("Left holded"); }
-  
-  // //if (enc1.isPress()) {lcd.print("Press");  }        // нажатие на кнопку (+ дебаунс)
-  // //if (enc1.isRelease()) {lcd.print("Release");  }    // то же самое, что isClick
-  
-  // if (enc1.isClick()) {lcd.clear(); lcd.print("Click");  }        // одиночный клик
-  // if (enc1.isSingle()) {lcd.clear(); lcd.print("Single");  }      // одиночный клик (с таймаутом для двойного)
-  // if (enc1.isDouble()) {lcd.clear(); lcd.print("Double");  }      // двойной клик
-  
-  
-  // if (enc1.isHolded()) {lcd.clear(); lcd.print("Holded");  }      // если была удержана и энк не поворачивался
-
-
-  // t = millis();
-
-  // if(t - lastLaserOnTime > 1000) {
-  //   digitalWrite(LASER_S, LOW);
-  //   startImpTime = millis();
-  //   delay(3);
-  //   digitalWrite(LASER_S, HIGH);
-  //   endImpTime = millis();
-  //   lastLaserOnTime = t;
-  // }
-
-
-  // laserSens = analogRead(LASER_SENS_S);
-  // if(laserSens<laserSensLevel) {
-  //   lcd.setCursor(0, 3);
-  //   lcd.print("                     ");
-  //   lcd.setCursor(0, 3);
-  //   lcd.print(t);
-  //   lcd.print(" ");
-  //   lcd.print(endImpTime-startImpTime);
-  //   lcd.print("ms ");
-  //   lcd.print(laserSens);
-  // }
-  // for(int i=0; i<5; i++){
-  //     digitalWrite(LASER_S, HIGH);
-  //     delay(50);
-  //     laserSensLevel += analogRead(LASER_SENS_S);
-  //     digitalWrite(LASER_S, LOW);
-  //     delay(50);
-  //     laserSensLevel += analogRead(LASER_SENS_S);
-  //     lcd.setCursor(0, 1);
-  //     lcd.print(i);
-  // }
-  // laserSensLevel = laserSensLevel/10;
-  // lcd.setCursor(0, 2);
-  // lcd.print(laserSensLevel);
-
-  // digitalWrite(LASER_S, HIGH);
