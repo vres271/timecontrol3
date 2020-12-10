@@ -23,8 +23,6 @@ unsigned long lastLaserOnTime,  startImpTime, endImpTime, t;
 boolean laserState = false;
 unsigned int laserSensLevel, laserSens= 0;
 
-//byte eventCode = 0;
-
 struct State{
   unsigned int route = 1;
   unsigned int subroute = 3;
@@ -36,41 +34,30 @@ State state;
 
 class Event{
   public:
-    boolean absorbed = false;
-    byte type = 0;
+    boolean fired = false;
     unsigned long payloadLong = 0;
-    unsigned long payloadInt = 0;
+    unsigned int payloadInt = 0;
     String payloadString = "";
-
-    void emit(byte _type=0,unsigned long _payloadLong=0,unsigned long _payloadInt=0) {
-      //if(!absorbed) return;
-      type = _type;
+    void emit(unsigned long _payloadLong=0,unsigned int _payloadInt=0) {
       payloadLong = _payloadLong;
       payloadInt = _payloadInt;
       payloadInt = payloadInt;
-      absorbed = false;
+      fired = true;
     }
-
     void absorb() {
-      absorbed = true;
+      fired = false;
     }
-
 };
 
-volatile Event event;
-
-
+Event event0; Event event1; Event event2; Event event3; Event event4; Event event5; Event event6; Event event7; Event event8; Event event9; Event event10; Event event11; Event event12; 
+Event events[] = {event0,event1,event2,event3,event4,event5,event6,event7,event8,event9,event10,event11,event12};
 
 void setup() {
-
 
   Serial.begin(9600); 
 
   lcd.init();
   lcd.backlight();
-
-  //state = menu(state,  state);
-  //displayState();
 
   enc1.setType(TYPE1);
 
@@ -86,73 +73,81 @@ void setup() {
   digitalWrite(LASER_PWR, HIGH);
   digitalWrite(LASER_GND, LOW);
   digitalWrite(LASER_S, laserState);
+  digitalWrite(LASER_S, HIGH);
 
   digitalWrite(LASER_SENS_GND, LOW);
   digitalWrite(LASER_SENS_PWR, HIGH);
 
-  digitalWrite(LASER_S, HIGH);
-
-
   attachInterrupt(5, onSensor, RISING); 
 }
-
-void onSensor() {
-  //sensorOnTime = t;
-  event.emit(1,t,analogRead(LASER_SENS_S));
-}
-
 
 void loop() {
   t = millis();
 
-  if (enc1.isLeft()) event.emit(10);
-  if (enc1.isRight()) event.emit(11);
-  if (enc1.isClick()) event.emit(12);
-
+  eventEmmiter();
   handler();
   showSensValue();
 
   enc1.tick();
-  //eventListener(eventEmmiter());
+}
+
+volatile unsigned long _onSensor_t = 0;
+volatile unsigned int _onSensor_value = 0;
+void onSensor() {
+  _onSensor_t = t;
+  _onSensor_value = analogRead(LASER_SENS_S);
+}
+
+void eventEmmiter() {
+
+  // Sensor
+  if(_onSensor_t) {
+    events[1].emit(_onSensor_t,_onSensor_value);
+    _onSensor_t = 0;
+    _onSensor_value = 0;
+  }
+
+  // Encoder
+  if (enc1.isLeft()) events[10].emit();
+  if (enc1.isRight()) events[11].emit();
+  if (enc1.isClick()) events[12].emit();
+
 }
 
 unsigned long lastSensorOnTime = 0;
 void handler() {
-  if(event.absorbed) return;
-  if(event.type==1) {
-    Serial.print(event.type);
+  if(events[1].fired) {
+    Serial.print(events[1].payloadLong-lastSensorOnTime);
     Serial.print("\t");
-    Serial.print(event.payloadLong-lastSensorOnTime);
-    Serial.print("\t");
-    Serial.print(event.payloadInt);
+    Serial.print(events[1].payloadInt);
     Serial.print("\t\n");
     lcd.setCursor(0, 1);
     lcd.print("         ");    
     lcd.setCursor(0, 1);
-    lcd.print(event.payloadLong-lastSensorOnTime);
-    lastSensorOnTime = event.payloadLong;
-    event.absorb();
+    lcd.print(events[1].payloadLong-lastSensorOnTime);
+    lastSensorOnTime = events[1].payloadLong;
+    events[1].absorb();
   }
-  if(event.type==10) {
+  if(events[10].fired) {
     lcd.setCursor(0, 3);
     lcd.print("         ");    
     lcd.setCursor(0, 3);
     lcd.print("left");
-    event.absorb();
+    events[10].absorb();
   }
-  if(event.type==11) {
+  if(events[11].fired) {
     lcd.setCursor(0, 3);
     lcd.print("         ");    
     lcd.setCursor(0, 3);
     lcd.print("right");
-    event.absorb();
+    events[11].absorb();
   }
-  if(event.type==12) {
+  if(events[12].fired) {
     lcd.setCursor(0, 3);
     lcd.print("         ");    
     lcd.setCursor(0, 3);
     lcd.print("click");
-    event.absorb();
+    events[12].absorb();
   }
 }
 
@@ -189,239 +184,239 @@ void showSensValue() {
 
 
 
-byte eventEmmiter() {
-  if (enc1.isLeft()) return 10;
-  if (enc1.isRight()) return 11;
-  if (enc1.isClick()) return 12;
-  return 0;
-}
+// byte eventEmmiter() {
+//   if (enc1.isLeft()) return 10;
+//   if (enc1.isRight()) return 11;
+//   if (enc1.isClick()) return 12;
+//   return 0;
+// }
 
 
-void enableSensorTest() {
-  digitalWrite(LASER_S, HIGH);
-  lcd.setCursor(0, 1);
-  lcd.print("                                      ");
-  lcd.setCursor(0, 1);
-  lcd.print("Started");
-  lcd.setCursor(10, 1);
-  lcd.print("V0:");
-  lcd.setCursor(10, 2);
-  lcd.print("V1:");
-  lcd.setCursor(10, 3);
-  lcd.print("VA:");
-  lcd.setCursor(0, 3);
-  lcd.print("dV:");
-  lcd.setCursor(0, 2);
-  lcd.print("V:");
-}
+// void enableSensorTest() {
+//   digitalWrite(LASER_S, HIGH);
+//   lcd.setCursor(0, 1);
+//   lcd.print("                                      ");
+//   lcd.setCursor(0, 1);
+//   lcd.print("Started");
+//   lcd.setCursor(10, 1);
+//   lcd.print("V0:");
+//   lcd.setCursor(10, 2);
+//   lcd.print("V1:");
+//   lcd.setCursor(10, 3);
+//   lcd.print("VA:");
+//   lcd.setCursor(0, 3);
+//   lcd.print("dV:");
+//   lcd.setCursor(0, 2);
+//   lcd.print("V:");
+// }
 
-void disableSensorTest() {
-  digitalWrite(LASER_S, LOW);
-  lcd.setCursor(0, 1);
-  lcd.print("                                      ");
-  lcd.setCursor(0, 1);
-  lcd.print("Stopped");
-}
+// void disableSensorTest() {
+//   digitalWrite(LASER_S, LOW);
+//   lcd.setCursor(0, 1);
+//   lcd.print("                                      ");
+//   lcd.setCursor(0, 1);
+//   lcd.print("Stopped");
+// }
 
-unsigned long lastLaserSwitchTime, LaserSwitchPeriod=500;
-boolean LaserState=true;
-unsigned int laser0=1, laser1=2, laserA=3;
-void SensorTest() {
+// unsigned long lastLaserSwitchTime, LaserSwitchPeriod=500;
+// boolean LaserState=true;
+// unsigned int laser0=1, laser1=2, laserA=3;
+// void SensorTest() {
 
-  if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
-    if(LaserState) {
-      laser1 = analogRead(LASER_SENS_S);
-      lcd.setCursor(14, 2);
-      lcd.print("     ");
-      lcd.setCursor(14, 2);
-      lcd.print(laser1);
-    } else {
-      laser0 = analogRead(LASER_SENS_S);
-      lcd.setCursor(14, 1);
-      lcd.print("     ");
-      lcd.setCursor(14, 1);
-      lcd.print(laser0);
-    }
-    laserA = (laser0+laser1)/2;
-    lcd.setCursor(14, 3);
-    lcd.print("     ");
-    lcd.setCursor(14, 3);
-    lcd.print(laserA);
+//   if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
+//     if(LaserState) {
+//       laser1 = analogRead(LASER_SENS_S);
+//       lcd.setCursor(14, 2);
+//       lcd.print("     ");
+//       lcd.setCursor(14, 2);
+//       lcd.print(laser1);
+//     } else {
+//       laser0 = analogRead(LASER_SENS_S);
+//       lcd.setCursor(14, 1);
+//       lcd.print("     ");
+//       lcd.setCursor(14, 1);
+//       lcd.print(laser0);
+//     }
+//     laserA = (laser0+laser1)/2;
+//     lcd.setCursor(14, 3);
+//     lcd.print("     ");
+//     lcd.setCursor(14, 3);
+//     lcd.print(laserA);
 
-    lcd.setCursor(4, 3);
-    lcd.print("   ");
-    lcd.setCursor(4, 3);
-    lcd.print((laser1-laser0));
+//     lcd.setCursor(4, 3);
+//     lcd.print("   ");
+//     lcd.setCursor(4, 3);
+//     lcd.print((laser1-laser0));
 
-    lcd.setCursor(4, 2);
-    lcd.print("     ");
-    lcd.setCursor(4, 2);
-    lcd.print(analogRead(LASER_SENS_S));
-  }
+//     lcd.setCursor(4, 2);
+//     lcd.print("     ");
+//     lcd.setCursor(4, 2);
+//     lcd.print(analogRead(LASER_SENS_S));
+//   }
 
-  if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
-    LaserState=!LaserState;
-    digitalWrite(LASER_S, LaserState);
-    lastLaserSwitchTime = millis();
-  }
-}
+//   if(millis() - lastLaserSwitchTime > LaserSwitchPeriod) {
+//     LaserState=!LaserState;
+//     digitalWrite(LASER_S, LaserState);
+//     lastLaserSwitchTime = millis();
+//   }
+// }
 
-void LaserSwitchPeriodDec() {
-  if(LaserSwitchPeriod<=2) return;
-  LaserSwitchPeriod = LaserSwitchPeriod/2;
-  lcd.setCursor(0, 1);
-  lcd.print("          ");
-  lcd.setCursor(0, 1);
-  lcd.print("T:");
-  lcd.print(LaserSwitchPeriod);
-}
+// void LaserSwitchPeriodDec() {
+//   if(LaserSwitchPeriod<=2) return;
+//   LaserSwitchPeriod = LaserSwitchPeriod/2;
+//   lcd.setCursor(0, 1);
+//   lcd.print("          ");
+//   lcd.setCursor(0, 1);
+//   lcd.print("T:");
+//   lcd.print(LaserSwitchPeriod);
+// }
 
-void LaserSwitchPeriodInc() {
-  if(LaserSwitchPeriod>=10000) return;
-  LaserSwitchPeriod = LaserSwitchPeriod*2;
-  lcd.setCursor(0, 1);
-  lcd.print("          ");
-  lcd.setCursor(0, 1);
-  lcd.print("T:");
-  lcd.print(LaserSwitchPeriod);
-}
+// void LaserSwitchPeriodInc() {
+//   if(LaserSwitchPeriod>=10000) return;
+//   LaserSwitchPeriod = LaserSwitchPeriod*2;
+//   lcd.setCursor(0, 1);
+//   lcd.print("          ");
+//   lcd.setCursor(0, 1);
+//   lcd.print("T:");
+//   lcd.print(LaserSwitchPeriod);
+// }
 
-boolean eventListener(byte eventCode) {
+// boolean eventListener(byte eventCode) {
 
-  if(state.route==1) {
-    if(state.subroute==3) {
-      if(state.active) {
-        if(eventCode==12) {
-          disableSensorTest();
-          state.active=!state.active;
-          return true;
-        }
-        if(eventCode==10) {LaserSwitchPeriodDec(); eventCode=0;}
-        if(eventCode==11) {LaserSwitchPeriodInc(); eventCode=0;}
-        SensorTest();
-        return true;
-      } else {
-        if(eventCode==12) {
-          enableSensorTest();
-          state.active=!state.active;
-          eventCode=0;
-        }
+//   if(state.route==1) {
+//     if(state.subroute==3) {
+//       if(state.active) {
+//         if(eventCode==12) {
+//           disableSensorTest();
+//           state.active=!state.active;
+//           return true;
+//         }
+//         if(eventCode==10) {LaserSwitchPeriodDec(); eventCode=0;}
+//         if(eventCode==11) {LaserSwitchPeriodInc(); eventCode=0;}
+//         SensorTest();
+//         return true;
+//       } else {
+//         if(eventCode==12) {
+//           enableSensorTest();
+//           state.active=!state.active;
+//           eventCode=0;
+//         }
 
-      }
-    }
-  }
+//       }
+//     }
+//   }
 
-  if(eventCode) {
-    if(eventCode==10) {menuPrev(); displayState(); return true;}
-    if(eventCode==11) {menuNext(); displayState(); return true;}
-    if(eventCode==12) {menuEnter(); displayState(); return true;}    
-  }
-  return true;
-}
+//   if(eventCode) {
+//     if(eventCode==10) {menuPrev(); displayState(); return true;}
+//     if(eventCode==11) {menuNext(); displayState(); return true;}
+//     if(eventCode==12) {menuEnter(); displayState(); return true;}    
+//   }
+//   return true;
+// }
 
 
-struct State menu(struct State newState, struct State oldState) {
-  if(newState.route==0) {
-    newState.routeTitle = "Home";
-    if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
-    if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
-    if(newState.subroute==2) {newState.subRouteTitle = "About"; return newState;}
-    if(newState.subroute==3) {newState.subRouteTitle = "Help"; return newState;}
-    if(newState.subroute==4) {newState.subRouteTitle = "Credit"; return newState;}
-  }
-  if(newState.route==1) {
-    newState.routeTitle = "Set";
-    if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
-    if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
-    if(newState.subroute==2) {newState.subRouteTitle = "Sens level"; return newState;}
-    if(newState.subroute==3) {newState.subRouteTitle = "Sens test"; return newState;}
-  }
-  if(newState.route==2) {
-    newState.routeTitle = "Race";
-    if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
-    if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
-    if(newState.subroute==2) {newState.subRouteTitle = "Racer sel"; return newState;}
-  }
-  if(newState.route==3) {
-    newState.routeTitle = "Res";
-    if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
-    if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
-    if(newState.subroute==2) {newState.subRouteTitle = "All res"; return newState;}
-    if(newState.subroute==3) {newState.subRouteTitle = "Reset results"; return newState;}
-  }
-  return oldState;
-}
+// struct State menu(struct State newState, struct State oldState) {
+//   if(newState.route==0) {
+//     newState.routeTitle = "Home";
+//     if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
+//     if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
+//     if(newState.subroute==2) {newState.subRouteTitle = "About"; return newState;}
+//     if(newState.subroute==3) {newState.subRouteTitle = "Help"; return newState;}
+//     if(newState.subroute==4) {newState.subRouteTitle = "Credit"; return newState;}
+//   }
+//   if(newState.route==1) {
+//     newState.routeTitle = "Set";
+//     if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
+//     if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
+//     if(newState.subroute==2) {newState.subRouteTitle = "Sens level"; return newState;}
+//     if(newState.subroute==3) {newState.subRouteTitle = "Sens test"; return newState;}
+//   }
+//   if(newState.route==2) {
+//     newState.routeTitle = "Race";
+//     if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
+//     if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
+//     if(newState.subroute==2) {newState.subRouteTitle = "Racer sel"; return newState;}
+//   }
+//   if(newState.route==3) {
+//     newState.routeTitle = "Res";
+//     if(newState.subroute==0) {newState.subRouteTitle = ""; return newState;}
+//     if(newState.subroute==1) {newState.subRouteTitle = "back"; return newState;}
+//     if(newState.subroute==2) {newState.subRouteTitle = "All res"; return newState;}
+//     if(newState.subroute==3) {newState.subRouteTitle = "Reset results"; return newState;}
+//   }
+//   return oldState;
+// }
 
-void displayState() {
+// void displayState() {
 
-  lcd.setCursor(0, 0);
-  lcd.print("                           ");
-  lcd.setCursor(0, 0);
-  lcd.print(state.route);
-  lcd.print(state.routeTitle);
-  if(state.subroute) {
-    if(state.subroute==1) {
-      lcd.print("<-");
-      //state.subRouteTitle = "back"; 
-    } else {
-      lcd.print("->");
-    }
-    lcd.print(state.subroute);
-    lcd.print(state.subRouteTitle);
-  }
-}
+//   lcd.setCursor(0, 0);
+//   lcd.print("                           ");
+//   lcd.setCursor(0, 0);
+//   lcd.print(state.route);
+//   lcd.print(state.routeTitle);
+//   if(state.subroute) {
+//     if(state.subroute==1) {
+//       lcd.print("<-");
+//       //state.subRouteTitle = "back"; 
+//     } else {
+//       lcd.print("->");
+//     }
+//     lcd.print(state.subroute);
+//     lcd.print(state.subRouteTitle);
+//   }
+// }
 
-void menuNext() {
-  State newState = state;
-  if(newState.subroute) {
-    newState.subroute++;
-    newState.active = false;
-  } else {
-    newState.route++;
-    newState.active = false;
-  }
-  state = menu(newState,  state);
-  lcd.setCursor(0, 1);
-  lcd.print("                          ");
-  lcd.setCursor(0, 2);
-  lcd.print("                          ");
-  lcd.setCursor(0, 3);
-  lcd.print("                          ");
-  lcd.setCursor(0, 4);
-  lcd.print("                          ");
-}
+// void menuNext() {
+//   State newState = state;
+//   if(newState.subroute) {
+//     newState.subroute++;
+//     newState.active = false;
+//   } else {
+//     newState.route++;
+//     newState.active = false;
+//   }
+//   state = menu(newState,  state);
+//   lcd.setCursor(0, 1);
+//   lcd.print("                          ");
+//   lcd.setCursor(0, 2);
+//   lcd.print("                          ");
+//   lcd.setCursor(0, 3);
+//   lcd.print("                          ");
+//   lcd.setCursor(0, 4);
+//   lcd.print("                          ");
+// }
 
-void menuPrev() {
-  State newState = state;
-  if(newState.subroute) {
-    if(newState.subroute>1) {
-      newState.subroute--;
-      newState.active = false;
-    }
-  } else {
-    newState.route--;
-    newState.active = false;
-  }
-  state = menu(newState,  state);
-  lcd.setCursor(0, 2);
-  lcd.print("                          ");
-  lcd.setCursor(0, 3);
-  lcd.print("                          ");
-  lcd.setCursor(0, 4);
-  lcd.print("                          ");
-}
+// void menuPrev() {
+//   State newState = state;
+//   if(newState.subroute) {
+//     if(newState.subroute>1) {
+//       newState.subroute--;
+//       newState.active = false;
+//     }
+//   } else {
+//     newState.route--;
+//     newState.active = false;
+//   }
+//   state = menu(newState,  state);
+//   lcd.setCursor(0, 2);
+//   lcd.print("                          ");
+//   lcd.setCursor(0, 3);
+//   lcd.print("                          ");
+//   lcd.setCursor(0, 4);
+//   lcd.print("                          ");
+// }
 
-void menuEnter() {
-  State newState = state;
-  if(newState.subroute==1) {
-    newState.subroute = 0;
-  } else if(newState.subroute==0) {
-    newState.subroute = 2;
-  } else {
-    newState.active = !state.active;
-  }
-  state = menu(newState,  state);
-}
+// void menuEnter() {
+//   State newState = state;
+//   if(newState.subroute==1) {
+//     newState.subroute = 0;
+//   } else if(newState.subroute==0) {
+//     newState.subroute = 2;
+//   } else {
+//     newState.active = !state.active;
+//   }
+//   state = menu(newState,  state);
+// }
 
 
 
