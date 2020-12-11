@@ -19,18 +19,45 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #define LASER_SENS_S A7
 #define LASER_SENS_SD 18
 
-unsigned long lastLaserOnTime,  startImpTime, endImpTime, t;
+unsigned long t;
 boolean laserState = false;
-unsigned int laserSensLevel, laserSens= 0;
 
-struct State{
-  unsigned int route = 1;
-  unsigned int subroute = 3;
-  boolean active = false;
-  String routeTitle = "";
-  String subRouteTitle = "";
+const char *menu[][10]  = {
+  {"Race","Sel racer","Cancel","Retry"},
+  {"Set","Laps n","Mode","Ignore t"},
+  {"Test","Sens V","Time","Blink"},
 };
-State state;
+
+class State{
+  public:
+    byte route = 1;
+    byte subroute = 3;
+    boolean active = false;
+    String routeTitle = "";
+    String subRouteTitle = "";
+    State(byte _route, byte _subroute) {
+      route = _route;
+      subroute = _subroute;
+    };
+    void displayState() {
+      lcd.setCursor(0, 0);
+      lcd.print("                           ");
+      lcd.setCursor(0, 0);
+      //lcd.print(route);
+      lcd.print(menu[route][0]);
+      if(subroute) {
+        if(subroute==1) {
+          lcd.print("<-");
+          //state.subRouteTitle = "back"; 
+        } else {
+          lcd.print("->");
+        }
+        //lcd.print(subroute);
+        lcd.print(menu[route][subroute]);
+      }
+    };
+};
+State state(0,0);
 
 class Event{
   public:
@@ -49,8 +76,14 @@ class Event{
     }
 };
 
-Event event0; Event event1; Event event2; Event event3; Event event4; Event event5; Event event6; Event event7; Event event8; Event event9; Event event10; Event event11; Event event12; 
-Event events[] = {event0,event1,event2,event3,event4,event5,event6,event7,event8,event9,event10,event11,event12};
+Event event0; 
+Event event1; // Sensor
+Event event2; // Encoder left
+Event event3; // Encoder right
+Event event4; // Encoder click
+Event event5; // BT command recieved
+Event events[] = {event0,event1,event2,event3,event4,event5};
+
 
 void setup() {
 
@@ -79,6 +112,9 @@ void setup() {
   digitalWrite(LASER_SENS_PWR, HIGH);
 
   attachInterrupt(5, onSensor, RISING); 
+
+  state.displayState();
+
 }
 
 void loop() {
@@ -86,6 +122,7 @@ void loop() {
 
   eventEmmiter();
   handler();
+
   showSensValue();
 
   enc1.tick();
@@ -108,59 +145,65 @@ void eventEmmiter() {
   }
 
   // Encoder
-  if (enc1.isLeft()) events[10].emit();
-  if (enc1.isRight()) events[11].emit();
-  if (enc1.isClick()) events[12].emit();
+  if (enc1.isLeft()) events[2].emit();
+  if (enc1.isRight()) events[3].emit();
+  if (enc1.isClick()) events[4].emit();
 
 }
 
 unsigned long lastSensorOnTime = 0;
 void handler() {
   if(events[1].fired) {
-    Serial.print(events[1].payloadLong-lastSensorOnTime);
-    Serial.print("\t");
-    Serial.print(events[1].payloadInt);
-    Serial.print("\t\n");
-    lcd.setCursor(0, 1);
-    lcd.print("         ");    
-    lcd.setCursor(0, 1);
-    lcd.print(events[1].payloadLong-lastSensorOnTime);
+    lcd.setCursor(0, 1); lcd.print("         "); lcd.setCursor(0, 1); lcd.print(events[1].payloadLong-lastSensorOnTime);
     lastSensorOnTime = events[1].payloadLong;
     events[1].absorb();
   }
-  if(events[10].fired) {
-    lcd.setCursor(0, 3);
-    lcd.print("         ");    
-    lcd.setCursor(0, 3);
-    lcd.print("left");
-    events[10].absorb();
+
+  if(state.subroute==0) {
+    if(events[2].fired) {
+      if(state.route>0) state.route--;
+      state.displayState();
+      events[2].absorb();
+    }
+    if(events[3].fired) {
+      if(state.route<2) state.route++;
+      state.displayState();
+      events[3].absorb();
+    }
+    if(events[4].fired) {
+      state.subroute=1;
+      state.displayState();
+      events[4].absorb();
+    }
+  } else {
+    if(events[2].fired) {
+      if(state.subroute>0) state.subroute--;
+      state.displayState();
+      events[2].absorb();
+    }
+    if(events[3].fired) {
+      if(state.subroute<3) state.subroute++;
+      state.displayState();
+      events[3].absorb();
+    }
+    if(events[4].fired) {
+      state.subroute=0;
+      state.displayState();
+      events[4].absorb();
+    }
   }
-  if(events[11].fired) {
-    lcd.setCursor(0, 3);
-    lcd.print("         ");    
-    lcd.setCursor(0, 3);
-    lcd.print("right");
-    events[11].absorb();
-  }
-  if(events[12].fired) {
-    lcd.setCursor(0, 3);
-    lcd.print("         ");    
-    lcd.setCursor(0, 3);
-    lcd.print("click");
-    events[12].absorb();
-  }
+
+
 }
 
 unsigned long l_lst = 0;
 void showSensValue() {
   if(t > l_lst+300) {
-    lcd.setCursor(0, 2);
-    lcd.print("         ");    
-    lcd.setCursor(0, 2);
-    lcd.print(analogRead(LASER_SENS_S));
+    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print(analogRead(LASER_SENS_S));
     l_lst = t;
   }
 }
+
 
 
 
