@@ -33,12 +33,11 @@ class State{
     byte route = 1;
     byte subroute = 3;
     boolean active = false;
-    String routeTitle = "";
-    String subRouteTitle = "";
+    boolean activeEntered = false;
     State(byte _route, byte _subroute, boolean _active) {
       route = _route;
       subroute = _subroute;
-      active = _active;
+      if(!active && _active) setActive();
     };
     void displayState() {
       lcd.setCursor(0, 0);
@@ -54,7 +53,39 @@ class State{
         lcd.print(menu[route][subroute]);
         if(active) {lcd.print(":");}
       }
-    };
+    }
+    void clearDisplay() {
+      lcd.setCursor(0, 1); lcd.print("                    ");     
+      lcd.setCursor(0, 2); lcd.print("                    ");
+      lcd.setCursor(0, 3); lcd.print("                    ");
+    }
+    void menuPrev() {
+      if(route>0) route--;
+    }
+    void menuNext() {
+      if(route<2) route++;
+    }    
+    void menuEnter() {
+      subroute=1;
+    }    
+    void submenuPrev() {
+      if(subroute>0) {
+        subroute--;
+      }
+    }
+    void submenuNext() {
+      if(subroute<3) {
+        subroute++;
+      }
+    }    
+    void setActive() {
+      active = true;
+      activeEntered = true;
+    }
+    void setInactive() {
+      active = false;
+      activeEntered = false;
+    }
 };
 State state(2,1,true);
 
@@ -112,7 +143,6 @@ void setup() {
   attachInterrupt(5, onSensor, RISING); 
 
   state.displayState();
-
 }
 
 void loop() {
@@ -152,42 +182,46 @@ void handler() {
 
   if(state.subroute==0) { // в меню первого уровня
     if(events[2].fired) {
-      if(state.route>0) state.route--;
+      state.menuPrev();
       state.displayState();
     }
     if(events[3].fired) {
-      if(state.route<2) state.route++;
+      state.menuNext();
       state.displayState();
     }
     if(events[4].fired) {
-      state.subroute=1;
+      state.menuEnter();
       state.displayState();
     }
   } else { // в меню второго уровня
     if(!state.active) { // пункт не выбран
       if(events[2].fired) {
-        if(state.subroute>0) state.subroute--;
+        state.submenuPrev();
         state.displayState();
       }
       if(events[3].fired) {
-        if(state.subroute<3) state.subroute++;
+        state.submenuNext();
         state.displayState();
       }
       if(events[4].fired) {
-        state.active=true;
+        state.setActive();
+        state.clearDisplay();
         state.displayState();
       }
     } else { // пункт выбран
+
       if(events[4].fired) {
-        state.active=false;
+        state.setInactive();
+        state.clearDisplay();
         state.displayState();
+        setLaser(false);
       }
 
       if(state.route==2 && state.subroute==1) {
         allValues();
       }
 
-
+      state.activeEntered = false;
     }
   }
 
@@ -205,21 +239,31 @@ void handler() {
 unsigned long lastSensorOnTime = 0;
 unsigned long l_lst = 0;
 void allValues() {
-  if(events[1].fired) {
-    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print("dt: "); lcd.print(events[1].payloadLong-lastSensorOnTime);
-    lcd.setCursor(0, 3); lcd.print("         "); lcd.setCursor(0, 3); lcd.print("iV: "); lcd.print(events[1].payloadInt);
-    lastSensorOnTime = events[1].payloadLong;
+
+  if(state.activeEntered) {
+    lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); lcd.print("V: ");    
+    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print("dt: ");
+    lcd.setCursor(0, 3); lcd.print("    "); lcd.setCursor(0, 3); lcd.print("iV: ");
+    setLaser(true);
   }
 
   if(t > l_lst+300) {
-    lcd.setCursor(0, 1); lcd.print("         "); lcd.setCursor(0, 1); lcd.print("V: "); lcd.print(analogRead(LASER_SENS_S));
+    lcd.setCursor(3, 1); lcd.print("    "); lcd.setCursor(3, 1); lcd.print(analogRead(LASER_SENS_S));
     l_lst = t;
   }
 
+  if(events[1].fired) {
+    lcd.setCursor(4, 2); lcd.print("         "); lcd.setCursor(4, 2); lcd.print(events[1].payloadLong-lastSensorOnTime);
+    lcd.setCursor(4, 3); lcd.print("    "); lcd.setCursor(4, 3); lcd.print(events[1].payloadInt);
+    lastSensorOnTime = events[1].payloadLong;
+  }
 
 }
 
-
+void setLaser(boolean value) {
+  laserState = value;
+  digitalWrite(LASER_S, value);
+}
 
 
 
