@@ -25,7 +25,7 @@ boolean laserState = false;
 const char *menu[][10]  = {
   {"Race","Sel racer","Cancel","Retry"},
   {"Set","Laps n","Mode","Ignore t"},
-  {"Test","Sens V","Time","Blink"},
+  {"Test","All values","Time","Blink"},
 };
 
 class State{
@@ -35,29 +35,28 @@ class State{
     boolean active = false;
     String routeTitle = "";
     String subRouteTitle = "";
-    State(byte _route, byte _subroute) {
+    State(byte _route, byte _subroute, boolean _active) {
       route = _route;
       subroute = _subroute;
+      active = _active;
     };
     void displayState() {
       lcd.setCursor(0, 0);
       lcd.print("                           ");
       lcd.setCursor(0, 0);
-      //lcd.print(route);
       lcd.print(menu[route][0]);
       if(subroute) {
         if(subroute==1) {
           lcd.print("<-");
-          //state.subRouteTitle = "back"; 
         } else {
           lcd.print("->");
         }
-        //lcd.print(subroute);
         lcd.print(menu[route][subroute]);
+        if(active) {lcd.print(":");}
       }
     };
 };
-State state(0,0);
+State state(2,1,true);
 
 class Event{
   public:
@@ -68,7 +67,6 @@ class Event{
     void emit(unsigned long _payloadLong=0,unsigned int _payloadInt=0) {
       payloadLong = _payloadLong;
       payloadInt = _payloadInt;
-      payloadInt = payloadInt;
       fired = true;
     }
     void absorb() {
@@ -122,9 +120,6 @@ void loop() {
 
   eventEmmiter();
   handler();
-
-  showSensValue();
-
   enc1.tick();
 }
 
@@ -151,57 +146,77 @@ void eventEmmiter() {
 
 }
 
-unsigned long lastSensorOnTime = 0;
 void handler() {
   if(events[1].fired) {
-    lcd.setCursor(0, 1); lcd.print("         "); lcd.setCursor(0, 1); lcd.print(events[1].payloadLong-lastSensorOnTime);
-    lastSensorOnTime = events[1].payloadLong;
-    events[1].absorb();
   }
 
-  if(state.subroute==0) {
+  if(state.subroute==0) { // в меню первого уровня
     if(events[2].fired) {
       if(state.route>0) state.route--;
       state.displayState();
-      events[2].absorb();
     }
     if(events[3].fired) {
       if(state.route<2) state.route++;
       state.displayState();
-      events[3].absorb();
     }
     if(events[4].fired) {
       state.subroute=1;
       state.displayState();
-      events[4].absorb();
     }
-  } else {
-    if(events[2].fired) {
-      if(state.subroute>0) state.subroute--;
-      state.displayState();
-      events[2].absorb();
-    }
-    if(events[3].fired) {
-      if(state.subroute<3) state.subroute++;
-      state.displayState();
-      events[3].absorb();
-    }
-    if(events[4].fired) {
-      state.subroute=0;
-      state.displayState();
-      events[4].absorb();
+  } else { // в меню второго уровня
+    if(!state.active) { // пункт не выбран
+      if(events[2].fired) {
+        if(state.subroute>0) state.subroute--;
+        state.displayState();
+      }
+      if(events[3].fired) {
+        if(state.subroute<3) state.subroute++;
+        state.displayState();
+      }
+      if(events[4].fired) {
+        state.active=true;
+        state.displayState();
+      }
+    } else { // пункт выбран
+      if(events[4].fired) {
+        state.active=false;
+        state.displayState();
+      }
+
+      if(state.route==2 && state.subroute==1) {
+        allValues();
+      }
+
+
     }
   }
 
+  events[0].absorb();
+  events[1].absorb();
+  events[2].absorb();
+  events[3].absorb();
+  events[4].absorb();
+  events[5].absorb();
 
 }
 
+
+
+unsigned long lastSensorOnTime = 0;
 unsigned long l_lst = 0;
-void showSensValue() {
+void allValues() {
+  if(events[1].fired) {
+    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print("dt: "); lcd.print(events[1].payloadLong-lastSensorOnTime);
+    lcd.setCursor(0, 3); lcd.print("         "); lcd.setCursor(0, 3); lcd.print("iV: "); lcd.print(events[1].payloadInt);
+    lastSensorOnTime = events[1].payloadLong;
+  }
+
   if(t > l_lst+300) {
-    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print(analogRead(LASER_SENS_S));
+    lcd.setCursor(0, 1); lcd.print("         "); lcd.setCursor(0, 1); lcd.print("V: "); lcd.print(analogRead(LASER_SENS_S));
     l_lst = t;
   }
+
+
 }
 
 
