@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 #include "microLiquidCrystal_I2C.h"
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 // адрес дисплея 0x3f или 0x27
@@ -10,7 +12,6 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
-#include <EEPROM.h>
 
 #define LASER_PWR 7
 #define LASER_GND 6
@@ -89,7 +90,6 @@ class State{
       activeEntered = false;
     }
 };
-State state(2,1,true);
 
 class Event{
   public:
@@ -107,6 +107,84 @@ class Event{
     }
 };
 
+class Config {
+  public:
+    unsigned int FS_KEY = 0; byte FS_KEY_addr = 0; // 0 2
+    byte MODE = 1;  byte MODE_addr = 2; // 2  1
+    unsigned int LAPS_N = 3; byte LAPS_N_addr = 3; // 3 2
+    unsigned int SENSOR_IGNORE_TIME = 3000; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
+    boolean MUTE = false; byte MUTE_addr = 7; // 7  1
+    Config() {
+      EEPROM.get(0, FS_KEY);
+      if(FS_KEY!=12345) { // First start
+        Serial.println();
+        Serial.println("First start, writing defaults...");
+        EEPROM.put(FS_KEY_addr, 12345);
+        EEPROM.put(MODE_addr, MODE);
+        EEPROM.put(LAPS_N_addr, LAPS_N);
+        EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
+        EEPROM.put(MUTE_addr, MUTE);
+        Serial.println("Done");
+        read();
+        printConfig();
+      }
+    }
+    void read() {
+      EEPROM.get(FS_KEY_addr, FS_KEY);
+      EEPROM.get(MODE_addr, MODE);
+      EEPROM.get(LAPS_N_addr, LAPS_N);
+      EEPROM.get(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
+      EEPROM.get(MUTE_addr, MUTE);
+    };
+
+    void printConfig() {
+      Serial.println("Config: ");
+      Serial.print("FS_KEY: "); Serial.println(FS_KEY);
+      Serial.print("MODE: "); Serial.println(MODE);
+      Serial.print("LAPS_N: "); Serial.println(LAPS_N);
+      Serial.print("SENSOR_IGNORE_TIME: "); Serial.println(SENSOR_IGNORE_TIME);
+      Serial.print("MUTE: "); Serial.println(MUTE);
+      Serial.println();
+    }
+
+    void setMODE() {
+      EEPROM.put(MODE_addr, MODE);
+    }
+    void setLAPS_N() {
+      EEPROM.put(LAPS_N_addr, LAPS_N);
+    }
+    void setSENSOR_IGNORE_TIME() {
+      EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
+    }
+    void setMUTE() {
+      EEPROM.put(MUTE_addr, MUTE);
+    }
+
+    void setMODE(byte value) {
+      if(value == MODE) return;
+      MODE = value;
+      EEPROM.put(MODE_addr, MODE);
+    }
+    void setLAPS_N(unsigned int value) {
+      if(value == LAPS_N) return;
+      LAPS_N = value;
+      EEPROM.put(LAPS_N_addr, LAPS_N);
+    }
+    void setSENSOR_IGNORE_TIME(unsigned int value) {
+      if(value == SENSOR_IGNORE_TIME) return;
+      SENSOR_IGNORE_TIME = value;
+      EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
+    }
+    void setMUTE(boolean value) {
+      if(value == MUTE) return;
+      MUTE = value;
+      EEPROM.put(MUTE_addr, MUTE);
+    }
+
+};
+
+State state(2,1,true);
+
 Event event0; 
 Event event1; // Sensor
 Event event2; // Encoder left
@@ -115,15 +193,12 @@ Event event4; // Encoder click
 Event event5; // BT command recieved
 Event events[] = {event0,event1,event2,event3,event4,event5};
 
-unsigned int EEMEM fs_key_addr;
-byte EEMEM mode_addr;
-unsigned int EEMEM laps_n_addr;
-unsigned int EEMEM sensor_ignore_time_addr;
-unsigned int EEMEM mute_addr;
 
 void setup() {
 
   Serial.begin(9600); 
+
+  Config config;
 
   lcd.init();
   lcd.backlight();
@@ -151,28 +226,19 @@ void setup() {
 
   state.displayState();
 
-  // объявляем переменные, куда будем читать
-  unsigned int FS_KEY;
-  byte MODE;
-  unsigned int LAPS_N;
-  unsigned int SENSOR_IGNORE_TIME;
-  unsigned int MUTE;
+  config.read();
+  config.printConfig();
 
-  // читаем точно так же, как писали
-  EEPROM.get((int)&fs_key_addr, FS_KEY);
-  EEPROM.get((int)&mode_addr, MODE);
-  EEPROM.get((int)&laps_n_addr, LAPS_N);
-  EEPROM.get((int)&sensor_ignore_time_addr, SENSOR_IGNORE_TIME);
-  EEPROM.get((int)&mute_addr, MUTE);
+  // config.setLAPS_N(10);
 
-  Serial.println(FS_KEY);
-  Serial.println(MODE);
-  Serial.println(LAPS_N);
-  Serial.println(SENSOR_IGNORE_TIME);
-  Serial.println(MUTE);
-  Serial.println();
+  // config.read();
+  // config.printConfig();
 
+  // config.LAPS_N = 25;
+  // config.setLAPS_N();
   
+  // config.read();
+  // config.printConfig();
 
 }
 
@@ -295,6 +361,7 @@ void setLaser(boolean value) {
   laserState = value;
   digitalWrite(LASER_S, value);
 }
+
 
 
 
