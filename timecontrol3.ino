@@ -10,6 +10,8 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
+#include <EEPROM.h>
+
 #define LASER_PWR 7
 #define LASER_GND 6
 #define LASER_S 5
@@ -113,6 +115,11 @@ Event event4; // Encoder click
 Event event5; // BT command recieved
 Event events[] = {event0,event1,event2,event3,event4,event5};
 
+unsigned int EEMEM fs_key_addr;
+byte EEMEM mode_addr;
+unsigned int EEMEM laps_n_addr;
+unsigned int EEMEM sensor_ignore_time_addr;
+unsigned int EEMEM mute_addr;
 
 void setup() {
 
@@ -143,6 +150,30 @@ void setup() {
   attachInterrupt(5, onSensor, RISING); 
 
   state.displayState();
+
+  // объявляем переменные, куда будем читать
+  unsigned int FS_KEY;
+  byte MODE;
+  unsigned int LAPS_N;
+  unsigned int SENSOR_IGNORE_TIME;
+  unsigned int MUTE;
+
+  // читаем точно так же, как писали
+  EEPROM.get((int)&fs_key_addr, FS_KEY);
+  EEPROM.get((int)&mode_addr, MODE);
+  EEPROM.get((int)&laps_n_addr, LAPS_N);
+  EEPROM.get((int)&sensor_ignore_time_addr, SENSOR_IGNORE_TIME);
+  EEPROM.get((int)&mute_addr, MUTE);
+
+  Serial.println(FS_KEY);
+  Serial.println(MODE);
+  Serial.println(LAPS_N);
+  Serial.println(SENSOR_IGNORE_TIME);
+  Serial.println(MUTE);
+  Serial.println();
+
+  
+
 }
 
 void loop() {
