@@ -27,7 +27,7 @@ boolean laserState = false;
 
 const char *menu[][10]  = {
   {"Race","Sel racer","Cancel","Retry"},
-  {"Set","Laps n","Mode","Ignore t"},
+  {"Set","Mode","Laps N","Ignore time","Save res","Sounds"},
   {"Test","All values","Time","Blink"},
 };
 
@@ -77,9 +77,9 @@ class State{
       }
     }
     void submenuNext() {
-      if(subroute<3) {
-        subroute++;
-      }
+      if(route==0&&subroute<3) subroute++;
+      if(route==1&&subroute<5) subroute++;
+      if(route==2&&subroute<3) subroute++;
     }    
     void setActive() {
       active = true;
@@ -114,6 +114,7 @@ class Config {
     unsigned int LAPS_N = 3; byte LAPS_N_addr = 3; // 3 2
     unsigned int SENSOR_IGNORE_TIME = 3000; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
     boolean MUTE = false; byte MUTE_addr = 7; // 7  1
+    boolean SAVE_RESULTS = false; byte SAVE_RESULTS_addr = 8; // 7  1
     Config() {
       EEPROM.get(0, FS_KEY);
       if(FS_KEY!=12345) { // First start
@@ -124,6 +125,7 @@ class Config {
         EEPROM.put(LAPS_N_addr, LAPS_N);
         EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
         EEPROM.put(MUTE_addr, MUTE);
+        EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
         Serial.println("Done");
         read();
         print();
@@ -135,6 +137,7 @@ class Config {
       EEPROM.get(LAPS_N_addr, LAPS_N);
       EEPROM.get(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
       EEPROM.get(MUTE_addr, MUTE);
+      EEPROM.get(SAVE_RESULTS_addr, SAVE_RESULTS);
     };
 
     void print() {
@@ -144,6 +147,7 @@ class Config {
       Serial.print("LAPS_N: "); Serial.println(LAPS_N);
       Serial.print("SENSOR_IGNORE_TIME: "); Serial.println(SENSOR_IGNORE_TIME);
       Serial.print("MUTE: "); Serial.println(MUTE);
+      Serial.print("SAVE_RESULTS: "); Serial.println(SAVE_RESULTS);
       Serial.println();
     }
 
@@ -158,6 +162,9 @@ class Config {
     }
     void setMUTE() {
       EEPROM.put(MUTE_addr, MUTE);
+    }
+    void setSAVE_RESULTS() {
+      EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
     }
 
     void setMODE(byte value) {
@@ -179,6 +186,11 @@ class Config {
       if(value == MUTE) return;
       MUTE = value;
       EEPROM.put(MUTE_addr, MUTE);
+    }
+    void setSAVE_RESULTS(boolean value) {
+      if(value == SAVE_RESULTS) return;
+      SAVE_RESULTS = value;
+      EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
     }
 
 };
@@ -230,17 +242,6 @@ void setup() {
 
   config.read();
   config.print();
-
-  // config.setLAPS_N(10);
-
-  // config.read();
-  // config.print();
-
-  // config.LAPS_N = 25;
-  // config.setLAPS_N();
-  
-  // config.read();
-  // config.print();
 
 }
 
@@ -321,27 +322,8 @@ void handler() {
         allValues();
       }
 
-      if(state.route==1 && state.subroute==1) {
-        if(state.activeEntered) {
-          lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); lcd.print("LAPS NUMBER: "); lcd.print(config.LAPS_N);
-        }
-        if(events[2].fired) {
-          if(config.LAPS_N<1) return;
-          config.LAPS_N--;
-          lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
-        }
-        if(events[3].fired) {
-          if(config.LAPS_N>999) return;
-          config.LAPS_N++;
-          lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
-        }
-
-        if(events[4].fired) {
-          config.setLAPS_N();
-          config.read();
-          config.print();
-        }
-
+      if(state.route==1 && state.subroute) {
+        settings();
       }
 
       state.activeEntered = false;
@@ -381,6 +363,71 @@ void allValues() {
     lastSensorOnTime = events[1].payloadLong;
   }
 
+}
+
+//MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS
+void settings() {
+  if(state.activeEntered) {
+    lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); 
+    if(state.subroute==1) {lcd.print("RACE MODE: "); lcd.print(config.MODE);}
+    if(state.subroute==2) {lcd.print("LAPS NUMBER: "); lcd.print(config.LAPS_N);}
+    if(state.subroute==3) {lcd.print("SENSOR IGNORE TIMEOUT: "); lcd.print(config.SENSOR_IGNORE_TIME);}
+    if(state.subroute==4) {lcd.print("SAVE RESULTS TO EEPROM: "); lcd.print(config.SAVE_RESULTS);}
+    if(state.subroute==5) {lcd.print("MUTE SOUNDS: "); lcd.print(config.MUTE);}
+  }
+  if(events[2].fired) {
+    if(state.subroute==1) {
+      if(config.MODE<=1) return; config.MODE--;
+      lcd.setCursor(11, 1); lcd.print("    "); lcd.setCursor(11, 1); lcd.print(config.MODE);
+    }
+    if(state.subroute==2) {
+      if(config.LAPS_N<1) return; config.LAPS_N--;
+      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
+    }
+    if(state.subroute==3) {
+      if(config.SENSOR_IGNORE_TIME<1) return; config.SENSOR_IGNORE_TIME--;
+      lcd.setCursor(23, 1); lcd.print("    "); lcd.setCursor(23, 1); lcd.print(config.SENSOR_IGNORE_TIME);
+    }
+    if(state.subroute==4) {
+      if(!config.SAVE_RESULTS) return; config.SAVE_RESULTS=false;
+      lcd.setCursor(24, 1); lcd.print("    "); lcd.setCursor(24, 1); lcd.print(config.SAVE_RESULTS);
+    }
+    if(state.subroute==5) {
+      if(!config.MUTE) return; config.MUTE=false;
+      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.MUTE);
+    }
+  }
+  if(events[3].fired) {
+    if(state.subroute==1) {
+      if(config.MODE>=2) return; config.MODE++;
+      lcd.setCursor(11, 1); lcd.print("    "); lcd.setCursor(11, 1); lcd.print(config.MODE);
+    }
+    if(state.subroute==2) {
+      if(config.LAPS_N>999) return; config.LAPS_N++;
+      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
+    }
+    if(state.subroute==3) {
+      if(config.SENSOR_IGNORE_TIME>999) return; config.SENSOR_IGNORE_TIME++;
+      lcd.setCursor(23, 1); lcd.print("    "); lcd.setCursor(23, 1); lcd.print(config.SENSOR_IGNORE_TIME);
+    }
+    if(state.subroute==4) {
+      if(config.SAVE_RESULTS) return; config.SAVE_RESULTS=true;
+      lcd.setCursor(24, 1); lcd.print("    "); lcd.setCursor(24, 1); lcd.print(config.SAVE_RESULTS);
+    }
+    if(state.subroute==5) {
+      if(config.MUTE) return; config.MUTE=true;
+      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.MUTE);
+    }
+  }
+  if(events[4].fired) {
+    if(state.subroute==1) {config.setMODE();}
+    if(state.subroute==2) {config.setLAPS_N();}
+    if(state.subroute==3) {config.setSENSOR_IGNORE_TIME();}
+    if(state.subroute==4) {config.setSAVE_RESULTS();}
+    if(state.subroute==5) {config.setMUTE();}
+    config.read();
+    config.print();
+  }
 }
 
 void setLaser(boolean value) {
