@@ -27,7 +27,7 @@ boolean laserState = false;
 
 const char *menu[][10]  = {
   {"Race","Sel racer","Cancel","Retry"},
-  {"Set","Mode","Laps N","Ignore time","Save res","Sounds"},
+  {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
   {"Test","All values","Time","Blink"},
 };
 
@@ -112,7 +112,7 @@ class Config {
     unsigned int FS_KEY = 0; byte FS_KEY_addr = 0; // 0 2
     byte MODE = 1;  byte MODE_addr = 2; // 2  1
     unsigned int LAPS_N = 3; byte LAPS_N_addr = 3; // 3 2
-    unsigned int SENSOR_IGNORE_TIME = 3000; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
+    unsigned int SENSOR_IGNORE_TIME = 3; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
     boolean MUTE = false; byte MUTE_addr = 7; // 7  1
     boolean SAVE_RESULTS = false; byte SAVE_RESULTS_addr = 8; // 7  1
     Config() {
@@ -194,6 +194,7 @@ class Config {
     }
 
 };
+
 
 State state(2,1,true);
 
@@ -366,57 +367,80 @@ void allValues() {
 }
 
 //MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS
+String sN[6] = {
+  ""
+  ,"RACE MODE"
+  ,"LAPS NUMBER"
+  ,"SENS IGNORE TMT"
+  ,"SAVE TO EEPROM"
+  ,"MUTE SOUNDS"  
+};
+void clearForValue(unsigned int valueLength) {
+  lcd.setCursor(sN[state.subroute].length()+2, 1); 
+  String spacer = "";
+  for(int i=0; i<valueLength; i++){
+    spacer = spacer + " ";
+  }
+  lcd.print(spacer); 
+  lcd.setCursor(sN[state.subroute].length()+2, 1);
+}
 void settings() {
   if(state.activeEntered) {
     lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); 
-    if(state.subroute==1) {lcd.print("RACE MODE: "); lcd.print(config.MODE);}
-    if(state.subroute==2) {lcd.print("LAPS NUMBER: "); lcd.print(config.LAPS_N);}
-    if(state.subroute==3) {lcd.print("SENSOR IGNORE TIMEOUT: "); lcd.print(config.SENSOR_IGNORE_TIME);}
-    if(state.subroute==4) {lcd.print("SAVE RESULTS TO EEPROM: "); lcd.print(config.SAVE_RESULTS);}
-    if(state.subroute==5) {lcd.print("MUTE SOUNDS: "); lcd.print(config.MUTE);}
+    if(state.subroute==1) {lcd.print(sN[state.subroute]+": "); lcd.print(config.MODE);}
+    if(state.subroute==2) {lcd.print(sN[state.subroute]+": "); lcd.print(config.LAPS_N);}
+    if(state.subroute==3) {lcd.print(sN[state.subroute]+": "); lcd.print(config.SENSOR_IGNORE_TIME);}
+    if(state.subroute==4) {lcd.print(sN[state.subroute]+": "); lcd.print(config.SAVE_RESULTS);}
+    if(state.subroute==5) {lcd.print(sN[state.subroute]+": "); lcd.print(config.MUTE);}
   }
-  if(events[2].fired) {
-    if(state.subroute==1) {
+  if(state.subroute==1) {
+    if(events[2].fired) { // enc left
       if(config.MODE<=1) return; config.MODE--;
-      lcd.setCursor(11, 1); lcd.print("    "); lcd.setCursor(11, 1); lcd.print(config.MODE);
+      clearForValue(5); lcd.print(config.MODE);
     }
-    if(state.subroute==2) {
-      if(config.LAPS_N<1) return; config.LAPS_N--;
-      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
-    }
-    if(state.subroute==3) {
-      if(config.SENSOR_IGNORE_TIME<1) return; config.SENSOR_IGNORE_TIME--;
-      lcd.setCursor(23, 1); lcd.print("    "); lcd.setCursor(23, 1); lcd.print(config.SENSOR_IGNORE_TIME);
-    }
-    if(state.subroute==4) {
-      if(!config.SAVE_RESULTS) return; config.SAVE_RESULTS=false;
-      lcd.setCursor(24, 1); lcd.print("    "); lcd.setCursor(24, 1); lcd.print(config.SAVE_RESULTS);
-    }
-    if(state.subroute==5) {
-      if(!config.MUTE) return; config.MUTE=false;
-      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.MUTE);
+    if(events[3].fired) { // enc right
+      if(config.MODE>=2) return; config.MODE++;
+      clearForValue(5); lcd.print(config.MODE);
     }
   }
-  if(events[3].fired) {
-    if(state.subroute==1) {
-      if(config.MODE>=2) return; config.MODE++;
-      lcd.setCursor(11, 1); lcd.print("    "); lcd.setCursor(11, 1); lcd.print(config.MODE);
+  if(state.subroute==2) {
+    if(events[2].fired) { // enc left
+      if(config.LAPS_N<1) return; config.LAPS_N--;
+      clearForValue(5); lcd.print(config.LAPS_N);
     }
-    if(state.subroute==2) {
+    if(events[3].fired) { // enc right
       if(config.LAPS_N>999) return; config.LAPS_N++;
-      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.LAPS_N);
+      clearForValue(5); lcd.print(config.LAPS_N);
     }
-    if(state.subroute==3) {
-      if(config.SENSOR_IGNORE_TIME>999) return; config.SENSOR_IGNORE_TIME++;
-      lcd.setCursor(23, 1); lcd.print("    "); lcd.setCursor(23, 1); lcd.print(config.SENSOR_IGNORE_TIME);
+  }
+  if(state.subroute==3) {
+    if(events[2].fired) { // enc left
+      if(config.SENSOR_IGNORE_TIME<1) return; config.SENSOR_IGNORE_TIME--;
+      clearForValue(6); lcd.print(config.SENSOR_IGNORE_TIME);
     }
-    if(state.subroute==4) {
+    if(events[3].fired) { // enc right
+      if(config.SENSOR_IGNORE_TIME>300) return; config.SENSOR_IGNORE_TIME++;
+      clearForValue(6); lcd.print(config.SENSOR_IGNORE_TIME);
+    }
+  }
+  if(state.subroute==4) {
+    if(events[2].fired) { // enc left
+      if(!config.SAVE_RESULTS) return; config.SAVE_RESULTS=false;
+      clearForValue(3); lcd.print(config.SAVE_RESULTS);
+    }
+    if(events[3].fired) { // enc right
       if(config.SAVE_RESULTS) return; config.SAVE_RESULTS=true;
-      lcd.setCursor(24, 1); lcd.print("    "); lcd.setCursor(24, 1); lcd.print(config.SAVE_RESULTS);
+      clearForValue(3); lcd.print(config.SAVE_RESULTS);
     }
-    if(state.subroute==5) {
+  }
+  if(state.subroute==5) {
+    if(events[2].fired) { // enc left
+      if(!config.MUTE) return; config.MUTE=false;
+      clearForValue(3); lcd.print(config.MUTE);
+    }
+    if(events[3].fired) { // enc right
       if(config.MUTE) return; config.MUTE=true;
-      lcd.setCursor(13, 1); lcd.print("    "); lcd.setCursor(13, 1); lcd.print(config.MUTE);
+      clearForValue(3); lcd.print(config.MUTE);
     }
   }
   if(events[4].fired) {
@@ -435,8 +459,15 @@ void setLaser(boolean value) {
   digitalWrite(LASER_S, value);
 }
 
-
-
-
+void printLabel(String label, byte row = 1) {
+  unsigned int length = label.length();
+  lcd.setCursor(length, row);
+  String spacer = "";
+  for(int i=0; i<length; i++){
+    spacer = spacer + "";
+  }
+  lcd.print(spacer); 
+  lcd.setCursor(length, row); 
+}
 
 
