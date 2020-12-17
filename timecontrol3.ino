@@ -26,7 +26,7 @@ unsigned long t;
 boolean laserState = false;
 
 const char *menu[][10]  = {
-  {"Race","Sel racer","Cancel","Retry"},
+  {"Race","Get ready","Cancel","Retry"},
   {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
   {"Test","All values","Time","Blink"},
 };
@@ -196,7 +196,7 @@ class Config {
 };
 
 
-State state(2,1,true);
+State state(0,1,false);
 
 Event event0; 
 Event event1; // Sensor
@@ -216,7 +216,7 @@ void setup() {
 
   lcd.init();
   lcd.backlight();
-  State state(2,1,true);
+  State state(0,1,false);
 
   enc1.setType(TYPE1);
 
@@ -232,7 +232,6 @@ void setup() {
   digitalWrite(LASER_PWR, HIGH);
   digitalWrite(LASER_GND, LOW);
   digitalWrite(LASER_S, laserState);
-  digitalWrite(LASER_S, HIGH);
 
   digitalWrite(LASER_SENS_GND, LOW);
   digitalWrite(LASER_SENS_PWR, HIGH);
@@ -316,15 +315,18 @@ void handler() {
         state.clearDisplay();
         state.displayState();
         setLaser(false);
-        config.print();
       }
 
-      if(state.route==2 && state.subroute==1) {
-        allValues();
+      if(state.route==0 && state.subroute) {
+        race();
       }
 
       if(state.route==1 && state.subroute) {
         settings();
+      }
+
+      if(state.route==2 && state.subroute==1) {
+        allValues();
       }
 
       state.activeEntered = false;
@@ -454,6 +456,72 @@ void settings() {
   }
 }
 
+unsigned long start_t = 0;
+unsigned long finish_t = 0;
+unsigned long lap_t = 0;
+unsigned long lap_duration = 0;
+unsigned int laps_counter = 0;
+byte race_state = 0; // wait, started, finished, ignore
+void race() {
+  if(state.activeEntered) {
+    start_t = 0;
+    finish_t = 0;
+    lap_t = 0;
+    lap_duration = 0;
+    laps_counter = 0;
+    race_state = 0;    
+    setLaser(true);
+    Serial.print("\n");
+    Serial.print("Laps: ");
+    Serial.print(config.LAPS_N);
+    Serial.println(" : Ready...");
+    lcd.setCursor(0, 1); lcd.print("          "); lcd.setCursor(0, 1); lcd.print("Ready");
+
+  }
+
+  if(race_state==0) { // wait
+    if(events[1].fired) { // on sensor
+      start_t = events[1].payloadLong;
+      lap_t = events[1].payloadLong;
+      race_state=1;
+      Serial.println("Started");
+      lcd.setCursor(0, 1); lcd.print("          "); lcd.setCursor(0, 1); lcd.print("Started");
+      lcd.setCursor(0, 2); lcd.print("          "); 
+      lcd.setCursor(0, 3); lcd.print("          "); 
+    }
+  } else if(race_state==1) { // race started
+    if(events[1].fired) { // on sensor
+      lap_duration = events[1].payloadLong - lap_t;
+      lap_t = events[1].payloadLong;
+      laps_counter=laps_counter+1;
+      Serial.print("Lap ");
+      Serial.print(laps_counter);
+      Serial.print(" : ");
+      Serial.print(lap_t);
+      Serial.print("\n");
+      lcd.setCursor(0, 2); lcd.print("          "); lcd.setCursor(0, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(lap_duration);
+      if(laps_counter>=config.LAPS_N) {
+        race_state=2;
+        finish_t = events[1].payloadLong;
+      }
+    }
+  } else if(race_state==2) { // race finished
+    Serial.print("Finished ");
+    Serial.print(" : ");
+    Serial.print(finish_t - start_t);
+    Serial.print("\n");
+    lcd.setCursor(0, 1); lcd.print("          "); lcd.setCursor(0, 1); lcd.print("Finished");
+    lcd.setCursor(0, 3); lcd.print("          "); lcd.setCursor(0, 3); lcd.print(finish_t - start_t);
+    //setLaser(false);
+    race_state=0;
+    start_t = 0;
+    finish_t = 0;
+    lap_t = 0;
+    lap_duration = 0;
+    laps_counter = 0;
+
+  }
+}
 void setLaser(boolean value) {
   laserState = value;
   digitalWrite(LASER_S, value);
