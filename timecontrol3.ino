@@ -22,11 +22,13 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #define LASER_SENS_S A7
 #define LASER_SENS_SD 18
 
+#define RESULTS_EEPROM_SHIFT 100
+
 unsigned long t;
 boolean laserState = false;
 
 const char *menu[][10]  = {
-  {"Race","Get ready","Cancel","Retry"},
+  {"Race","Get ready","Results","Retry"},
   {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
   {"Test","All values","Time","Blink"},
 };
@@ -117,15 +119,16 @@ class Config {
     boolean SAVE_RESULTS = false; byte SAVE_RESULTS_addr = 8; // 7  1
     Config() {
       EEPROM.get(0, FS_KEY);
-      if(FS_KEY!=12345) { // First start
+      if(FS_KEY!=12346) { // First start
         Serial.println();
         Serial.println("First start, writing defaults...");
-        EEPROM.put(FS_KEY_addr, 12345);
+        EEPROM.put(FS_KEY_addr, 12346);
         EEPROM.put(MODE_addr, MODE);
         EEPROM.put(LAPS_N_addr, LAPS_N);
         EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
         EEPROM.put(MUTE_addr, MUTE);
         EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
+        EEPROM.put(RESULTS_EEPROM_SHIFT, RESULTS_EEPROM_SHIFT+2);
         Serial.println("Done");
         read();
         print();
@@ -195,6 +198,26 @@ class Config {
 
 };
 
+struct resultRow{
+  unsigned int r;
+  unsigned long t;
+};
+class Results {
+  public:
+    unsigned int last_addr = 0;
+    Results() {
+      EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
+      Serial.print("last_addr: ");
+      Serial.println(last_addr);
+    }
+  struct resultRow readResult(unsigned int i) {
+    resultRow row;
+    EEPROM.get(RESULTS_EEPROM_SHIFT + 2 + i*sizeof(resultRow), row);
+    return row;
+  }
+
+};
+
 
 State state(0,1,false);
 
@@ -207,6 +230,7 @@ Event event5; // BT command recieved
 Event events[] = {event0,event1,event2,event3,event4,event5};
 
 Config config;
+Results results;
 
 void setup() {
 
@@ -317,8 +341,15 @@ void handler() {
         setLaser(false);
       }
 
-      if(state.route==0 && state.subroute) {
+      if(state.route==0 && state.subroute==1) {
         race();
+      }
+
+      if(state.route==0 && state.subroute==2) {
+        if(state.activeEntered) {
+          //results.
+        }
+        
       }
 
       if(state.route==1 && state.subroute) {
@@ -456,6 +487,7 @@ void settings() {
   }
 }
 
+
 unsigned long start_t = 0;
 unsigned long finish_t = 0;
 unsigned long lap_t = 0;
@@ -463,8 +495,8 @@ unsigned long lap_duration = 0;
 unsigned long min_lap_duration = 0;
 unsigned int laps_counter = 0;
 byte race_state = 0; // wait, started, finished, ignore
-void race() {
-  if(state.activeEntered) {
+
+void resetRace() {
     start_t = 0;
     finish_t = 0;
     lap_t = 0;
@@ -472,6 +504,11 @@ void race() {
     min_lap_duration = 0;
     laps_counter = 0;
     race_state = 0;    
+}
+
+void race() {
+  if(state.activeEntered) {
+    resetRace();
     setLaser(true);
     Serial.print("\n");
     Serial.print("Laps: ");
@@ -519,14 +556,7 @@ void race() {
     lcd.setCursor(0, 2); lcd.print("                    "); lcd.setCursor(0, 2); lcd.print("Best:  "); lcd.print(millisToTime(min_lap_duration));
     lcd.setCursor(0, 3); lcd.print("                    "); lcd.setCursor(0, 3); lcd.print("Final: "); lcd.print(millisToTime(finish_t - start_t));
     //setLaser(false);
-    race_state=0;
-    start_t = 0;
-    finish_t = 0;
-    lap_t = 0;
-    lap_duration = 0;
-    min_lap_duration = 0;
-    laps_counter = 0;
-
+    resetRace();
   }
 }
 void setLaser(boolean value) {
