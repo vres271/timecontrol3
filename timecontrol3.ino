@@ -12,6 +12,15 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
+// ВT
+#define BT_RX 22
+#define BT_TX 23
+#define BT_PWR 24
+#define BT_GND 25
+#include <SoftwareSerial.h>
+SoftwareSerial BTSerial(BT_RX, BT_TX);
+
+
 
 #define LASER_PWR 7
 #define LASER_GND 6
@@ -21,6 +30,10 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #define LASER_SENS_PWR 8
 #define LASER_SENS_S A7
 #define LASER_SENS_SD 18
+
+// Beeper
+#define BEEP_S 17
+#define BEEP_GND 16
 
 #define RESULTS_EEPROM_SHIFT 100
 
@@ -39,6 +52,7 @@ class State{
     byte subroute = 3;
     boolean active = false;
     boolean activeEntered = false;
+    boolean blockedActive = false;
     State(byte _route, byte _subroute, boolean _active) {
       route = _route;
       subroute = _subroute;
@@ -83,13 +97,16 @@ class State{
       if(route==1&&subroute<5) subroute++;
       if(route==2&&subroute<3) subroute++;
     }    
-    void setActive() {
+    boolean setActive() {
       active = true;
       activeEntered = true;
+      return true;
     }
-    void setInactive() {
+    boolean setInactive() {
+      if(blockedActive) return false;
       active = false;
       activeEntered = false;
+      return true;
     }
 };
 
@@ -266,8 +283,10 @@ Results results;
 void setup() {
 
   Serial.begin(9600); 
-
-  //Config config;
+  BTSerial.begin(9600);  //BTSerial.setTimeout(100);
+  if(BTSerial.available()) {
+    BTSerial.println('BTSerial is available');
+  }
 
   lcd.init();
   lcd.backlight();
@@ -291,6 +310,15 @@ void setup() {
   digitalWrite(LASER_SENS_GND, LOW);
   digitalWrite(LASER_SENS_PWR, HIGH);
 
+  pinMode(BEEP_S, OUTPUT);
+  pinMode(BEEP_GND, OUTPUT);
+  digitalWrite(BEEP_GND, LOW);
+
+  pinMode(BT_PWR, OUTPUT);
+  pinMode(BT_GND, OUTPUT);
+  digitalWrite(BT_PWR, HIGH);
+  digitalWrite(BT_GND, LOW);
+
   attachInterrupt(5, onSensor, RISING); 
 
   state.displayState();
@@ -300,6 +328,14 @@ void setup() {
   config.read();
   config.print();
 
+  beep( 3500,100);
+  delay(150);
+  beep( 3000,100);
+  delay(150);
+  beep( 2500,100);
+  delay(150);
+
+
 }
 
 void loop() {
@@ -308,6 +344,9 @@ void loop() {
   eventEmmiter();
   handler();
   enc1.tick();
+
+  //BTSerial.println("test");
+  //delay(200);
 }
 
 volatile unsigned long _onSensor_t = 0;
@@ -334,8 +373,10 @@ void eventEmmiter() {
 }
 
 void handler() {
-  if(events[1].fired) {
-  }
+
+  // if(events[1].fired) beep(800,20);
+  // if(events[2].fired  || events[3].fired) beep(140,5);
+  // if(events[4].fired) beep(400,20);
 
   if(state.subroute==0) { // в меню первого уровня
     if(events[2].fired) {
@@ -368,10 +409,11 @@ void handler() {
     } else { // пункт выбран
 
       if(events[4].fired) {
-        state.setInactive();
-        state.clearDisplay();
-        state.displayState();
-        setLaser(false);
+        if(state.setInactive()) {
+          state.clearDisplay();
+          state.displayState();
+          setLaser(false);
+        }
       }
 
       if(state.route==0 && state.subroute==1) {
@@ -379,15 +421,10 @@ void handler() {
       }
 
       if(state.route==0 && state.subroute==2) {
-        if(state.activeEntered) {
-          results.printAll();
-        }
+        resultsPage();
       }
 
       if(state.route==0 && state.subroute==3) {
-        if(state.activeEntered) {
-          results.clearAll();
-        }
       }
 
       if(state.route==1 && state.subroute) {
@@ -534,6 +571,7 @@ unsigned long lap_duration = 0;
 unsigned long min_lap_duration = 0;
 unsigned int laps_counter = 0;
 unsigned long last_timer_update = 0;
+unsigned long last_timer_update_millis = 0;
 byte race_state = 0; // wait, started, finished, ignore
 
 void resetRace() {
@@ -555,6 +593,7 @@ void race() {
     Serial.print(config.LAPS_N);
     Serial.println(" : Ready...");
     lcd.setCursor(0, 1); lcd.print("                    "); lcd.setCursor(0, 1); lcd.print("R:"); lcd.print(racer); lcd.setCursor(6, 1); lcd.print(" L:"); lcd.setCursor(9, 1); lcd.print(config.LAPS_N); lcd.setCursor(13, 1); lcd.print(" Ready");
+    lcd.setCursor(0, 2); lcd.print("SAVE TO EEPROM: "); lcd.print(config.SAVE_RESULTS?"YES":"NO"); 
   }
 
   if(race_state==0) { // wait
@@ -570,6 +609,7 @@ void race() {
       start_t = events[1].payloadLong;
       lap_t = events[1].payloadLong;
       race_state=1;
+      beep(800,200);
       Serial.println("Started");
       //lcd.setCursor(0, 1); lcd.print("                    "); 
       lcd.setCursor(13, 1); lcd.print("Started");
@@ -581,6 +621,10 @@ void race() {
       lcd.setCursor(7, 3); lcd.print(millisToTime(t - start_t));
       last_timer_update = t;
     }
+    if(t > last_timer_update_millis+200) {
+      lcd.setCursor(13, 3); lcd.print(millisToMillis(t - start_t));
+      last_timer_update_millis = t;
+    }
     if(events[1].fired) { // on sensor
       lap_duration = events[1].payloadLong - lap_t;
       if(min_lap_duration==0||lap_duration<min_lap_duration) {
@@ -588,11 +632,9 @@ void race() {
       }
       lap_t = events[1].payloadLong;
       laps_counter=laps_counter+1;
-      Serial.print("Lap ");
-      Serial.print(laps_counter);
-      Serial.print(" : ");
-      Serial.print(lap_t);
-      Serial.print("\n");
+      beep(600,50);
+      Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(lap_t); Serial.print("\n");
+      BTSerial.print("Lap "); BTSerial.print(laps_counter); BTSerial.print(" : "); BTSerial.print(lap_t); BTSerial.print("\n");
       lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
       if(laps_counter>=config.LAPS_N) {
         race_state=2;
@@ -600,6 +642,7 @@ void race() {
       }
     }
   } else if(race_state==2) { // race finished
+    beep(100,200);
     Serial.print("Finished ");
     Serial.print(" : ");
     Serial.print(finish_t - start_t);
@@ -615,6 +658,62 @@ void race() {
     resetRace();
   }
 }
+
+byte results_action = 0;
+boolean results_clear_confirm = false;
+void resultsPage() {
+
+  if(state.activeEntered) {
+    results_action = 0;
+    results_clear_confirm = false;
+    lcd.setCursor(0, 1); lcd.print("Show "); lcd.print(" <");
+    lcd.setCursor(0, 2); lcd.print("Print"); 
+    lcd.setCursor(0, 3); lcd.print("Clear");
+    state.blockedActive = true;
+  }
+  if(events[2].fired) { // left
+    if(results_action>0) {
+      results_clear_confirm = false;
+      lcd.setCursor(6, results_action+1); lcd.print("          ");
+      results_action--;
+      lcd.setCursor(6, results_action+1); lcd.print("<");
+    } else { // exit to submenu
+      state.blockedActive = false;
+      state.setInactive();
+      state.clearDisplay();
+      state.displayState();
+    }
+  }
+  if(events[3].fired) { // right
+    if(results_action<2) {
+      results_clear_confirm = false;
+      lcd.setCursor(6, results_action+1); lcd.print("          ");
+      results_action++;
+      lcd.setCursor(6, results_action+1); lcd.print("<");
+    }
+  }
+  if(events[4].fired) {
+    if(results_action==0) {
+      lcd.setCursor(6, results_action+1); lcd.print(">"); lcd.print(" OK ");
+    } else if (results_action==1) {
+      results.printAll();
+      lcd.setCursor(6, results_action+1); lcd.print(">"); lcd.print(" OK : "); lcd.print(results.last_addr/sizeof(resultRow));
+    } else if (results_action==2) {
+      lcd.setCursor(6, results_action+1); lcd.print(">"); 
+      if(!results_clear_confirm) {
+        lcd.setCursor(8, results_action+1); lcd.print(" Sure?  ");
+        results_clear_confirm = true;
+      } else {
+        results.clearAll();
+        lcd.setCursor(8, results_action+1); lcd.print(" Cleared");
+        results_clear_confirm = false;
+      }
+    }
+  }
+
+}
+
+
 void setLaser(boolean value) {
   laserState = value;
   digitalWrite(LASER_S, value);
@@ -640,8 +739,15 @@ String millisToTime(long unsigned time){
   s = s_-m_*60;
   m = m_-h_*60;
   return (m<10?"0":"")+String(m)+(":")+(s<10?"0":"")+String(s)+(".")+(ms<10?"0":"")+(ms<100?"0":"")+String(ms);
-   
-  //return (m<10?"0":"")+String(m)+":"+(s<10?"0":"")+String(s)+"."+(ms<10?"0":"")+(ms<100?"0":"")+String(ms);
-  //return (m<10?"0":"")+String(m)+":"+(s<10?"0":"")+String(s)+"."+(ms<10?"0":"")+(ms<100?"0":"")+String(ms);
+}
+String millisToMillis(long unsigned time){
+  int unsigned s_,ms = 0;
+  s_ = int(time/1000);
+  ms = time-s_*1000;
+  return String(ms<10?"0":"")+String(ms<100?"0":"")+String(ms);
+}
+void beep(unsigned int freq, unsigned int duration) {
+  if(config.MUTE) return;
+  tone(BEEP_S, freq,duration);
 }
 
