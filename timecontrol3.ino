@@ -13,10 +13,10 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
 // ВT
-#define BT_RX 22
-#define BT_TX 23
-#define BT_PWR 24
-#define BT_GND 25
+#define BT_RX 30
+#define BT_TX 31
+//#define BT_PWR 24
+//#define BT_GND 25
 #include <SoftwareSerial.h>
 SoftwareSerial BTSerial(BT_RX, BT_TX);
 
@@ -39,6 +39,59 @@ SoftwareSerial BTSerial(BT_RX, BT_TX);
 
 unsigned long t;
 boolean laserState = false;
+
+
+// BT SoftwareSerial
+
+char divider = ' ';
+char ending = ';';
+const char *headers[]  = {
+  "getresults",
+  "getinputs",
+  "getconfig",
+  "race",
+  "save",
+  "mode",
+  "laps",
+  "level",
+  "cancel",
+  "scal",
+  "batr",
+  "mute",
+  "stimeout",
+  "<", 
+  "^", 
+  ">", 
+  "help",
+};
+enum names {
+  GET_RESULTS, 
+  GET_INPUTS, 
+  GET_CONFIG, 
+  RACE, 
+  SAVE, 
+  _MODE, 
+  LAPS, 
+  LEVEL, 
+  CANCEL, 
+  SCAL, 
+  BATR, 
+  _MUTE, 
+  _STIMEOUT, 
+  BUTTON1, 
+  BUTTON2, 
+  BUTTON3, 
+  HELP, 
+};
+names thisName;
+byte headers_am = sizeof(headers) / 2;
+uint32_t prsTimer;
+String prsValue = "";
+String prsHeader = "";
+enum stages {WAIT, HEADER, GOT_HEADER, VALUE, SUCCESS};
+stages parseStage = WAIT;
+boolean recievedFlag;
+
 
 const char *menu[][10]  = {
   {"Race","Get ready","Results","Clear"},
@@ -283,10 +336,7 @@ Results results;
 void setup() {
 
   Serial.begin(9600); 
-  BTSerial.begin(9600);  //BTSerial.setTimeout(100);
-  if(BTSerial.available()) {
-    BTSerial.println('BTSerial is available');
-  }
+  BTSerial.begin(9600);  BTSerial.setTimeout(100);
 
   lcd.init();
   lcd.backlight();
@@ -314,10 +364,10 @@ void setup() {
   pinMode(BEEP_GND, OUTPUT);
   digitalWrite(BEEP_GND, LOW);
 
-  pinMode(BT_PWR, OUTPUT);
-  pinMode(BT_GND, OUTPUT);
-  digitalWrite(BT_PWR, HIGH);
-  digitalWrite(BT_GND, LOW);
+  //pinMode(BT_PWR, OUTPUT);
+  //pinMode(BT_GND, OUTPUT);
+  //digitalWrite(BT_PWR, HIGH);
+  //digitalWrite(BT_GND, LOW);
 
   attachInterrupt(5, onSensor, RISING); 
 
@@ -341,12 +391,14 @@ void setup() {
 void loop() {
   t = millis();
 
+  parsingSeparate();
+  SerialRouter();
+
+
   eventEmmiter();
   handler();
   enc1.tick();
 
-  //BTSerial.println("test");
-  //delay(200);
 }
 
 volatile unsigned long _onSensor_t = 0;
@@ -369,6 +421,7 @@ void eventEmmiter() {
   if (enc1.isLeft()) events[2].emit();
   if (enc1.isRight()) events[3].emit();
   if (enc1.isClick()) events[4].emit();
+
 
 }
 
@@ -751,3 +804,63 @@ void beep(unsigned int freq, unsigned int duration) {
   tone(BEEP_S, freq,duration);
 }
 
+template<typename T>
+T log(T text) {
+  Serial.print(text);
+  BTSerial.print(text);
+}
+
+
+
+
+void parsingSeparate() {
+  if (BTSerial.available() > 0) {
+    Serial.print(BTSerial.available());
+    if (parseStage == WAIT) {
+      parseStage = HEADER;
+      prsHeader = "";
+      prsValue = "";
+    }
+    if (parseStage == GOT_HEADER) parseStage = VALUE;
+    char incoming = (char)BTSerial.read();
+    if (incoming == divider) {
+      parseStage = GOT_HEADER;
+    } else if (incoming == ending) {
+      parseStage = SUCCESS;
+    }
+    if (parseStage == HEADER) {
+      prsHeader += incoming;
+    }
+    else if (parseStage == VALUE) prsValue += incoming;
+    prsTimer = millis();
+  }
+  if (parseStage == SUCCESS) {
+    for (byte i = 0; i < headers_am; i++) { if (prsHeader == headers[i]) { thisName = i; } } recievedFlag = true; parseStage = WAIT; } if ((millis() - prsTimer > 10) && (parseStage != WAIT)) {  // таймаут
+    parseStage = WAIT;
+  }
+  // if (parseStage == HEADER) {
+  //  if (millis() - prsTimer > 10 ) {
+  //    parseStage == SUCCESS;
+  //  }
+  // }
+}
+
+void SerialRouter() {
+  if (recievedFlag) {
+    recievedFlag = false;
+    if(thisName == GET_RESULTS) {
+      if(prsValue.toInt()==0) {
+        log("\nResults all"); log("\n\n");
+        results.printAll(); log("\n");
+      } else {
+        log("\nResults for racer "); log(prsValue); log("\n\n");
+        //printAllResults(prsValue.toInt()); log("\n");
+      }
+    } else if (thisName == GET_INPUTS) {
+      //getInputValues();
+    } else if (thisName == GET_CONFIG) {
+      //readSettings();
+    } 
+    thisName = '0'; prsValue=""; parseStage = WAIT;
+  }
+}
