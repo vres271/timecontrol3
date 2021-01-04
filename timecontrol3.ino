@@ -12,13 +12,13 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
-// ВT
-#define BT_RX 30
-#define BT_TX 31
+// SoftwareSerial for ВT
+//#define BT_RX 30
+//#define BT_TX 31
 //#define BT_PWR 24
 //#define BT_GND 25
-#include <SoftwareSerial.h>
-SoftwareSerial BTSerial(BT_RX, BT_TX);
+//#include <SoftwareSerial.h>
+//SoftwareSerial BTSerial(BT_RX, BT_TX);
 
 
 
@@ -41,7 +41,6 @@ unsigned long t;
 boolean laserState = false;
 
 
-// BT SoftwareSerial
 
 char divider = ' ';
 char ending = ';';
@@ -78,9 +77,9 @@ enum names {
   BATR, 
   _MUTE, 
   _STIMEOUT, 
-  BUTTON1, 
-  BUTTON2, 
-  BUTTON3, 
+  LEFT, 
+  CLICK, 
+  RIGHT, 
   HELP, 
 };
 names thisName;
@@ -306,7 +305,7 @@ class Results {
       for(int i=0; i*sizeof(resultRow)<=(last_addr-sizeof(resultRow)); i++) {
           stored_row = read(i);
           if(r==0 || stored_row.r==r) {
-            Serial.print(stored_row.r);Serial.print(" ");Serial.print(millisToTime(stored_row.t));Serial.print("\n");
+            Serial3.print(stored_row.r);Serial3.print(" ");Serial3.print(millisToTime(stored_row.t));Serial3.print("\n");
           }
         if(i>99) return;
       }
@@ -336,7 +335,7 @@ Results results;
 void setup() {
 
   Serial.begin(9600); 
-  BTSerial.begin(9600);  BTSerial.setTimeout(100);
+  Serial3.begin(9600);  Serial3.setTimeout(100);
 
   lcd.init();
   lcd.backlight();
@@ -687,7 +686,7 @@ void race() {
       laps_counter=laps_counter+1;
       beep(600,50);
       Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(lap_t); Serial.print("\n");
-      BTSerial.print("Lap "); BTSerial.print(laps_counter); BTSerial.print(" : "); BTSerial.print(lap_t); BTSerial.print("\n");
+      Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(lap_t); Serial3.print("\n");
       lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
       if(laps_counter>=config.LAPS_N) {
         race_state=2;
@@ -807,22 +806,22 @@ void beep(unsigned int freq, unsigned int duration) {
 template<typename T>
 T log(T text) {
   Serial.print(text);
-  BTSerial.print(text);
+  Serial3.print(text);
 }
 
 
 
 
 void parsingSeparate() {
-  if (BTSerial.available() > 0) {
-    Serial.print(BTSerial.available());
+  if (Serial3.available() > 0) {
+    Serial.print(Serial3.available());
     if (parseStage == WAIT) {
       parseStage = HEADER;
       prsHeader = "";
       prsValue = "";
     }
     if (parseStage == GOT_HEADER) parseStage = VALUE;
-    char incoming = (char)BTSerial.read();
+    char incoming = (char)Serial3.read();
     if (incoming == divider) {
       parseStage = GOT_HEADER;
     } else if (incoming == ending) {
@@ -856,10 +855,12 @@ void SerialRouter() {
         log("\nResults for racer "); log(prsValue); log("\n\n");
         //printAllResults(prsValue.toInt()); log("\n");
       }
-    } else if (thisName == GET_INPUTS) {
-      //getInputValues();
-    } else if (thisName == GET_CONFIG) {
-      //readSettings();
+    } else if (thisName == LEFT) {
+      events[2].emit();
+    } else if (thisName == RIGHT) {
+      events[3].emit();
+    }  else if (thisName == CLICK) {
+      events[4].emit();
     } 
     thisName = '0'; prsValue=""; parseStage = WAIT;
   }
