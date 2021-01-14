@@ -341,7 +341,7 @@ void setup() {
   lcd.backlight();
   State state(0,2,false);
 
-  enc1.setType(TYPE1);
+  enc1.setType(TYPE2);
 
   pinMode(LASER_PWR, OUTPUT);
   pinMode(LASER_GND, OUTPUT);
@@ -386,6 +386,17 @@ void setup() {
 
 
 }
+
+// void loop() { // AT comands sending
+//     if (Serial3.available()) {
+//         char c = Serial3.read();  // читаем из software-порта
+//         Serial.print(c);                   // пишем в hardware-порт
+//     }
+//     if (Serial.available()) {
+//         char c = Serial.read();      // читаем из hardware-порта
+//         Serial3.write(c);            // пишем в software-порт
+//     }
+// }
 
 void loop() {
   t = millis();
@@ -640,10 +651,8 @@ void race() {
   if(state.activeEntered) {
     resetRace();
     setLaser(true);
-    Serial.print("\n");
-    Serial.print("Laps: ");
-    Serial.print(config.LAPS_N);
-    Serial.println(" : Ready...");
+    Serial.print("\n"); Serial.print("Laps: "); Serial.print(config.LAPS_N); Serial.println(" : Ready...");
+    Serial3.print("\n"); Serial3.print("Laps: "); Serial3.print(config.LAPS_N); Serial3.println(" : Ready...");
     lcd.setCursor(0, 1); lcd.print("                    "); lcd.setCursor(0, 1); lcd.print("R:"); lcd.print(racer); lcd.setCursor(6, 1); lcd.print(" L:"); lcd.setCursor(9, 1); lcd.print(config.LAPS_N); lcd.setCursor(13, 1); lcd.print(" Ready");
     lcd.setCursor(0, 2); lcd.print("SAVE TO EEPROM: "); lcd.print(config.SAVE_RESULTS?"YES":"NO"); 
   }
@@ -658,15 +667,18 @@ void race() {
       lcd.setCursor(2, 1); lcd.print("     "); lcd.setCursor(2, 1); lcd.print(racer);
     }
     if(events[1].fired) { // on sensor
-      start_t = events[1].payloadLong;
-      lap_t = events[1].payloadLong;
-      race_state=1;
-      beep(800,200);
-      Serial.println("Started");
-      //lcd.setCursor(0, 1); lcd.print("                    "); 
-      lcd.setCursor(13, 1); lcd.print("Started");
-      lcd.setCursor(0, 2); lcd.print("                    "); 
-      lcd.setCursor(0, 3); lcd.print("Timer:              "); 
+      if(events[1].payloadLong > start_t + config.SENSOR_IGNORE_TIME*1000) {
+        start_t = events[1].payloadLong;
+        lap_t = events[1].payloadLong;
+        race_state=1;
+        beep(800,200);
+        Serial.print("\n"); Serial.print("R"); Serial.print(racer); Serial.println(" started");
+        Serial3.print("\n"); Serial3.print("R"); Serial3.print(racer); Serial3.println(" started");
+        //lcd.setCursor(0, 1); lcd.print("                    "); 
+        lcd.setCursor(13, 1); lcd.print("Started");
+        lcd.setCursor(0, 2); lcd.print("                    "); 
+        lcd.setCursor(0, 3); lcd.print("Timer:              "); 
+      }
     }
   } else if(race_state==1) { // race started
     if(t > last_timer_update+1000) {
@@ -678,27 +690,27 @@ void race() {
       last_timer_update_millis = t;
     }
     if(events[1].fired) { // on sensor
-      lap_duration = events[1].payloadLong - lap_t;
-      if(min_lap_duration==0||lap_duration<min_lap_duration) {
-        min_lap_duration = lap_duration;
-      }
-      lap_t = events[1].payloadLong;
-      laps_counter=laps_counter+1;
-      beep(600,50);
-      Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(lap_t); Serial.print("\n");
-      Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(lap_t); Serial3.print("\n");
-      lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
-      if(laps_counter>=config.LAPS_N) {
-        race_state=2;
-        finish_t = events[1].payloadLong;
+      if(events[1].payloadLong > lap_t + config.SENSOR_IGNORE_TIME*1000) {
+        lap_duration = events[1].payloadLong - lap_t;
+        if(min_lap_duration==0||lap_duration<min_lap_duration) {
+          min_lap_duration = lap_duration;
+        }
+        lap_t = events[1].payloadLong;
+        laps_counter=laps_counter+1;
+        beep(600,50);
+        Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(millisToTime(lap_duration)); Serial.print("\n");
+        Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(millisToTime(lap_duration)); Serial3.print("\n");
+        lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
+        if(laps_counter>=config.LAPS_N) {
+          race_state=2;
+          finish_t = events[1].payloadLong;
+        }
       }
     }
   } else if(race_state==2) { // race finished
     beep(100,200);
-    Serial.print("Finished ");
-    Serial.print(" : ");
-    Serial.print(finish_t - start_t);
-    Serial.print("\n");
+    Serial.print("Finished "); Serial.print(" : "); Serial.print(millisToTime(finish_t - start_t)); Serial.print("\n");
+    Serial3.print("Finished "); Serial3.print(" : "); Serial3.print(millisToTime(finish_t - start_t)); Serial3.print("\n");
     if(config.SAVE_RESULTS) {
       results.write(racer,finish_t - start_t);
     }
