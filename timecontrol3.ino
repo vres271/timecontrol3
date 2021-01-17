@@ -12,6 +12,13 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
+// Radio Module nRF24
+#include <SPI.h>
+#include "nRF24L01.h"
+#include "RF24.h"
+// RF24 radio(9,10); // инициализировать модуль на пинах 9 и 10 Для Уно
+RF24 radio(8,9);// Для Меги
+
 // SoftwareSerial for ВT
 //#define BT_RX 30
 //#define BT_TX 31
@@ -26,8 +33,8 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #define LASER_GND 6
 #define LASER_S 5
 
-#define LASER_SENS_GND 9
-#define LASER_SENS_PWR 8
+#define LASER_SENS_GND 23
+#define LASER_SENS_PWR 22
 #define LASER_SENS_S A7
 #define LASER_SENS_SD 18
 
@@ -40,6 +47,9 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 unsigned long t;
 boolean laserState = false;
 
+//Radio
+const uint8_t num_channels = 128;
+uint8_t values[num_channels];
 
 
 char divider = ' ';
@@ -101,7 +111,7 @@ const char *menu[][10]  = {
 class State{
   public:
     byte route = 1;
-    byte subroute = 3;
+    byte subroute = 2;
     boolean active = false;
     boolean activeEntered = false;
     boolean blockedActive = false;
@@ -319,7 +329,7 @@ class Results {
 
 };
 
-State state(0,2,false);
+State state(0,1,false);
 
 Event event0; 
 Event event1; // Sensor
@@ -334,14 +344,17 @@ Results results;
 
 void setup() {
 
+
   Serial.begin(9600); 
   Serial3.begin(9600);  Serial3.setTimeout(100);
 
   lcd.init();
   lcd.backlight();
-  State state(0,2,false);
+  State state(0,1,false);
 
   enc1.setType(TYPE2);
+
+  initRadio();
 
   pinMode(LASER_PWR, OUTPUT);
   pinMode(LASER_GND, OUTPUT);
@@ -387,18 +400,8 @@ void setup() {
 
 }
 
-// void loop() { // AT comands sending
-//     if (Serial3.available()) {
-//         char c = Serial3.read();  // читаем из software-порта
-//         Serial.print(c);                   // пишем в hardware-порт
-//     }
-//     if (Serial.available()) {
-//         char c = Serial.read();      // читаем из hardware-порта
-//         Serial3.write(c);            // пишем в software-порт
-//     }
-// }
-
 void loop() {
+
   t = millis();
 
   parsingSeparate();
@@ -408,6 +411,8 @@ void loop() {
   eventEmmiter();
   handler();
   enc1.tick();
+
+  //scanRadio();
 
 }
 
@@ -521,11 +526,13 @@ void allValues() {
     lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); lcd.print("V: ");    
     lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print("dt: ");
     lcd.setCursor(0, 3); lcd.print("    "); lcd.setCursor(0, 3); lcd.print("iV: ");
+    lcd.setCursor(8, 3); lcd.print("    "); lcd.setCursor(8, 3); lcd.print("bV: ");
     setLaser(true);
   }
 
   if(t > l_lst+300) {
     lcd.setCursor(3, 1); lcd.print("    "); lcd.setCursor(3, 1); lcd.print(analogRead(LASER_SENS_S));
+    lcd.setCursor(12, 3); lcd.print("    "); lcd.setCursor(12, 3); lcd.print(map(analogRead(A6),0,1023,0,5200));
     l_lst = t;
   }
 
@@ -875,5 +882,77 @@ void SerialRouter() {
       events[4].emit();
     } 
     thisName = '0'; prsValue=""; parseStage = WAIT;
+  }
+}
+
+
+
+
+const int num_reps = 100;
+
+int serial_putc( char c, FILE * ) {
+  Serial.write( c );
+  return c;
+}
+
+void printf_begin(void) {
+  fdevopen( &serial_putc, 0 );
+}
+
+void initRadio() {
+  printf_begin();
+  radio.begin();
+  radio.setAutoAck(false);
+  radio.startListening();
+
+  radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
+  delay(1000);              // И посмотрим на это пять секунд.
+
+  radio.stopListening();
+  int i = 0;    // А это напечатает нам заголовки всех 127 каналов
+  while ( i < num_channels )  {
+    printf("%x",i>>4);
+    ++i;
+  }
+  printf("\n\r");
+  i = 0;
+  while ( i < num_channels ) {
+    printf("%x",i&0xf);
+    ++i;
+  }
+  printf("\n\r");
+}
+
+void scanRadio() {
+  memset(values,0,sizeof(values));
+  int rep_counter = num_reps;
+  while (rep_counter--) {
+    int i = num_channels;
+    while (i--) {
+      radio.setChannel(i);
+      radio.startListening();
+      delayMicroseconds(128);
+      radio.stopListening();
+      if ( radio.testCarrier() )
+        ++values[i];
+    }
+  }
+  int i = 0;
+  while ( i < num_channels ) {
+    printf("%x",min(0xf,values[i]&0xf));
+    ++i;
+  }
+  printf("\n\r");
+
+}
+
+void ATCommands() {
+  if (Serial3.available()) {
+      char c = Serial3.read();  // читаем из software-порта
+      Serial.print(c);                   // пишем в hardware-порт
+  }
+  if (Serial.available()) {
+      char c = Serial.read();      // читаем из hardware-порта
+      Serial3.write(c);            // пишем в software-порт
   }
 }
