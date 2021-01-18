@@ -6,9 +6,9 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 // ширина дисплея (тут 20 символов)
 // высота дисплея (тут 4 строки)
 
-#define CLK 2
-#define DT 3
-#define SW 4
+#define CLK 24
+#define DT 25
+#define SW 26
 #include "GyverEncoder.h"
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
@@ -16,31 +16,23 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #include <SPI.h>
 #include "nRF24L01.h"
 #include "RF24.h"
-// RF24 radio(9,10); // инициализировать модуль на пинах 9 и 10 Для Уно
-RF24 radio(8,9);// Для Меги
+RF24 radio(22,23);// Для Меги
 
-// SoftwareSerial for ВT
-//#define BT_RX 30
-//#define BT_TX 31
-//#define BT_PWR 24
-//#define BT_GND 25
-//#include <SoftwareSerial.h>
-//SoftwareSerial BTSerial(BT_RX, BT_TX);
+#define LASER_PWR 29
+#define LASER_GND 28
+#define LASER_S 27
 
-
-
-#define LASER_PWR 7
-#define LASER_GND 6
-#define LASER_S 5
-
-#define LASER_SENS_GND 23
-#define LASER_SENS_PWR 22
-#define LASER_SENS_S A7
+#define LASER_SENS_GND 31
+#define LASER_SENS_PWR 30
+#define LASER_SENS_S A0
 #define LASER_SENS_SD 18
 
 // Beeper
 #define BEEP_S 17
 #define BEEP_GND 16
+
+// Battery control
+#define BATTERY_V A1
 
 #define RESULTS_EEPROM_SHIFT 100
 
@@ -50,7 +42,6 @@ boolean laserState = false;
 //Radio
 const uint8_t num_channels = 128;
 uint8_t values[num_channels];
-
 
 char divider = ' ';
 char ending = ';';
@@ -281,6 +272,7 @@ struct resultRow{
   unsigned int r;
   unsigned long t;
 };
+
 class Results {
   public:
     unsigned int last_addr = 0;
@@ -524,20 +516,22 @@ void allValues() {
 
   if(state.activeEntered) {
     lcd.setCursor(0, 1); lcd.print("    "); lcd.setCursor(0, 1); lcd.print("V: ");    
-    lcd.setCursor(0, 2); lcd.print("         "); lcd.setCursor(0, 2); lcd.print("dt: ");
+    lcd.setCursor(0, 2); lcd.print("        "); lcd.setCursor(0, 2); lcd.print("dt: ");
     lcd.setCursor(0, 3); lcd.print("    "); lcd.setCursor(0, 3); lcd.print("iV: ");
-    lcd.setCursor(8, 3); lcd.print("    "); lcd.setCursor(8, 3); lcd.print("bV: ");
+    lcd.setCursor(12, 2); lcd.print("    "); lcd.setCursor(12, 2); lcd.print("bL: ");
+    lcd.setCursor(12, 3); lcd.print("    "); lcd.setCursor(12, 3); lcd.print("bV: ");
     setLaser(true);
   }
 
   if(t > l_lst+300) {
     lcd.setCursor(3, 1); lcd.print("    "); lcd.setCursor(3, 1); lcd.print(analogRead(LASER_SENS_S));
-    lcd.setCursor(12, 3); lcd.print("    "); lcd.setCursor(12, 3); lcd.print(map(analogRead(A6),0,1023,0,5200));
+    lcd.setCursor(16, 2); lcd.print("    "); lcd.setCursor(16, 2); lcd.print(map(map(analogRead(BATTERY_V),0,1023,0,5300),2600,4200,0,100)); lcd.print("%");
+    lcd.setCursor(16, 3); lcd.print("    "); lcd.setCursor(16, 3); lcd.print(map(analogRead(BATTERY_V),0,1023,0,5300));
     l_lst = t;
   }
 
   if(events[1].fired) {
-    lcd.setCursor(4, 2); lcd.print("         "); lcd.setCursor(4, 2); lcd.print(events[1].payloadLong-lastSensorOnTime);
+    lcd.setCursor(4, 2); lcd.print("        "); lcd.setCursor(4, 2); lcd.print(events[1].payloadLong-lastSensorOnTime);
     lcd.setCursor(4, 3); lcd.print("    "); lcd.setCursor(4, 3); lcd.print(events[1].payloadInt);
     lastSensorOnTime = events[1].payloadLong;
   }
