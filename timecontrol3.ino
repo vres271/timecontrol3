@@ -17,6 +17,12 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #include "nRF24L01.h"
 #include "RF24.h"
 RF24 radio(22,23);// Для Меги
+#define RADIO_PWR_ON 8
+
+byte address[][6] = {"1Node", "2Node", "3Node", "4Node", "5Node", "6Node"}; //возможные номера труб
+
+byte counter;
+
 
 #define LASER_PWR 29
 #define LASER_GND 28
@@ -346,7 +352,9 @@ void setup() {
 
   enc1.setType(TYPE2);
 
-  initRadio();
+  //initRadio();
+
+  pinMode(RADIO_PWR_ON, OUTPUT);
 
   pinMode(LASER_PWR, OUTPUT);
   pinMode(LASER_GND, OUTPUT);
@@ -356,6 +364,8 @@ void setup() {
   pinMode(LASER_SENS_PWR, OUTPUT);
   pinMode(LASER_SENS_S, INPUT);
   pinMode(LASER_SENS_SD, INPUT);
+
+  digitalWrite(RADIO_PWR_ON, LOW);
 
   digitalWrite(LASER_PWR, HIGH);
   digitalWrite(LASER_GND, LOW);
@@ -405,6 +415,7 @@ void loop() {
   enc1.tick();
 
   //scanRadio();
+  //sendRadio();
 
 }
 
@@ -521,6 +532,7 @@ void allValues() {
     lcd.setCursor(12, 2); lcd.print("    "); lcd.setCursor(12, 2); lcd.print("bL: ");
     lcd.setCursor(12, 3); lcd.print("    "); lcd.setCursor(12, 3); lcd.print("bV: ");
     setLaser(true);
+    //initRadio();
   }
 
   if(t > l_lst+300) {
@@ -893,31 +905,60 @@ void printf_begin(void) {
   fdevopen( &serial_putc, 0 );
 }
 
+boolean radioInited = false;
 void initRadio() {
-  printf_begin();
-  radio.begin();
-  radio.setAutoAck(false);
-  radio.startListening();
+  digitalWrite(RADIO_PWR_ON, HIGH);
+  delay(2000);
 
-  radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
-  delay(1000);              // И посмотрим на это пять секунд.
+  Serial.begin(9600); //открываем порт для связи с ПК
 
-  radio.stopListening();
-  int i = 0;    // А это напечатает нам заголовки всех 127 каналов
-  while ( i < num_channels )  {
-    printf("%x",i>>4);
-    ++i;
-  }
-  printf("\n\r");
-  i = 0;
-  while ( i < num_channels ) {
-    printf("%x",i&0xf);
-    ++i;
-  }
-  printf("\n\r");
+  radio.begin(); //активировать модуль
+  radio.setAutoAck(1);         //режим подтверждения приёма, 1 вкл 0 выкл
+  radio.setRetries(0, 15);    //(время между попыткой достучаться, число попыток)
+  radio.enableAckPayload();    //разрешить отсылку данных в ответ на входящий сигнал
+  radio.setPayloadSize(32);     //размер пакета, в байтах
+
+  radio.openWritingPipe(address[0]);   //мы - труба 0, открываем канал для передачи данных
+  radio.setChannel(0x60);  //выбираем канал (в котором нет шумов!)
+
+  radio.setPALevel (RF24_PA_MAX); //уровень мощности передатчика. На выбор RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
+  radio.setDataRate (RF24_250KBPS); //скорость обмена. На выбор RF24_2MBPS, RF24_1MBPS, RF24_250KBPS
+  //должна быть одинакова на приёмнике и передатчике!
+  //при самой низкой скорости имеем самую высокую чувствительность и дальность!!
+
+  radio.powerUp(); //начать работу
+  radio.stopListening();  //не слушаем радиоэфир, мы передатчик
+
+
+
+  // printf_begin();
+  // radio.begin();
+  // radio.setAutoAck(false);
+  // radio.startListening();
+
+  // radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
+  // delay(1000);              // И посмотрим на это пять секунд.
+
+  // radio.stopListening();
+  // int i = 0;    // А это напечатает нам заголовки всех 127 каналов
+  // while ( i < num_channels )  {
+  //   printf("%x",i>>4);
+  //   ++i;
+  // }
+  // printf("\n\r");
+  // i = 0;
+  // while ( i < num_channels ) {
+  //   printf("%x",i&0xf);
+  //   ++i;
+  // }
+  // printf("\n\r");
+
+
+  radioInited = true;
 }
 
 void scanRadio() {
+  if(!radioInited) return;
   memset(values,0,sizeof(values));
   int rep_counter = num_reps;
   while (rep_counter--) {
@@ -938,6 +979,14 @@ void scanRadio() {
   }
   printf("\n\r");
 
+}
+
+void sendRadio() {
+  if(!radioInited) return;
+  Serial.print("Sent: "); Serial.println(counter);
+  radio.write(&counter, sizeof(counter));
+  counter++;
+  delay(10);
 }
 
 void ATCommands() {
