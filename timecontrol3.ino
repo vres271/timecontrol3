@@ -17,7 +17,7 @@ Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 #include "nRF24L01.h"
 #include "RF24.h"
 RF24 radio(22,23);// Для Меги
-#define RADIO_PWR_ON 8
+#define RADIO_PWR_ON 16
 
 byte address[][6] = {"1Node", "2Node", "3Node", "4Node", "5Node", "6Node"}; //возможные номера труб
 
@@ -35,7 +35,7 @@ byte counter;
 
 // Beeper
 #define BEEP_S 17
-#define BEEP_GND 16
+//#define BEEP_GND 16
 
 // Battery control
 #define BATTERY_V A1
@@ -375,8 +375,8 @@ void setup() {
   digitalWrite(LASER_SENS_PWR, HIGH);
 
   pinMode(BEEP_S, OUTPUT);
-  pinMode(BEEP_GND, OUTPUT);
-  digitalWrite(BEEP_GND, LOW);
+  //pinMode(BEEP_GND, OUTPUT);
+  //digitalWrite(BEEP_GND, LOW);
 
   //pinMode(BT_PWR, OUTPUT);
   //pinMode(BT_GND, OUTPUT);
@@ -532,7 +532,7 @@ void allValues() {
     lcd.setCursor(12, 2); lcd.print("    "); lcd.setCursor(12, 2); lcd.print("bL: ");
     lcd.setCursor(12, 3); lcd.print("    "); lcd.setCursor(12, 3); lcd.print("bV: ");
     setLaser(true);
-    //initRadio();
+    //initRadioForScan();
   }
 
   if(t > l_lst+300) {
@@ -956,6 +956,37 @@ void initRadio() {
 
   radioInited = true;
 }
+
+void initRadioForScan() {
+  digitalWrite(RADIO_PWR_ON, HIGH);
+  delay(2000);
+
+  printf_begin();
+  radio.begin();
+  radio.setAutoAck(false);
+  radio.startListening();
+
+  radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
+  delay(1000);              // И посмотрим на это пять секунд.
+
+  radio.stopListening();
+  int i = 0;    // А это напечатает нам заголовки всех 127 каналов
+  while ( i < num_channels )  {
+    printf("%x",i>>4);
+    ++i;
+  }
+  printf("\n\r");
+  i = 0;
+  while ( i < num_channels ) {
+    printf("%x",i&0xf);
+    ++i;
+  }
+  printf("\n\r");
+
+
+  radioInited = true;
+}
+
 
 void scanRadio() {
   if(!radioInited) return;
