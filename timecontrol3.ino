@@ -35,6 +35,7 @@ byte counter;
 
 // Beeper
 #define BEEP_S 17
+#define EXTERNAL_AUDIO 19
 //#define BEEP_GND 16
 
 // Battery control
@@ -45,50 +46,11 @@ byte counter;
 unsigned long t;
 boolean laserState = false;
 
-//Radio
-const uint8_t num_channels = 128;
-uint8_t values[num_channels];
 
 char divider = ' ';
 char ending = ';';
-const char *headers[]  = {
-  "getresults",
-  "getinputs",
-  "getconfig",
-  "race",
-  "save",
-  "mode",
-  "laps",
-  "level",
-  "cancel",
-  "scal",
-  "batr",
-  "mute",
-  "stimeout",
-  "<", 
-  "^", 
-  ">", 
-  "help",
-};
-enum names {
-  GET_RESULTS, 
-  GET_INPUTS, 
-  GET_CONFIG, 
-  RACE, 
-  SAVE, 
-  _MODE, 
-  LAPS, 
-  LEVEL, 
-  CANCEL, 
-  SCAL, 
-  BATR, 
-  _MUTE, 
-  _STIMEOUT, 
-  LEFT, 
-  CLICK, 
-  RIGHT, 
-  HELP, 
-};
+const char *headers[]  = {"getresults","getinputs","getconfig","race","save","mode","laps","level","cancel","scal","batr","mute","stimeout","<", "^", ">", "help",};
+enum names {GET_RESULTS, GET_INPUTS, GET_CONFIG, RACE, SAVE, _MODE, LAPS, LEVEL, CANCEL, SCAL, BATR, _MUTE, _STIMEOUT, LEFT, CLICK, RIGHT, HELP, };
 names thisName;
 byte headers_am = sizeof(headers) / 2;
 uint32_t prsTimer;
@@ -102,230 +64,17 @@ boolean recievedFlag;
 const char *menu[][10]  = {
   {"Race","Get ready","Results","Clear"},
   {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
-  {"Test","All values","Time","Blink"},
+  {"Test","All values","Time","Blink","Radio"},
 };
 
-class State{
-  public:
-    byte route = 1;
-    byte subroute = 2;
-    boolean active = false;
-    boolean activeEntered = false;
-    boolean blockedActive = false;
-    State(byte _route, byte _subroute, boolean _active) {
-      route = _route;
-      subroute = _subroute;
-      if(!active && _active) setActive();
-    };
-    void displayState() {
-      lcd.setCursor(0, 0);
-      lcd.print("                           ");
-      lcd.setCursor(0, 0);
-      lcd.print(menu[route][0]);
-      if(subroute) {
-        if(subroute==1) {
-          lcd.print("<-");
-        } else {
-          lcd.print("->");
-        }
-        lcd.print(menu[route][subroute]);
-        if(active) {lcd.print(":");}
-      }
-    }
-    void clearDisplay() {
-      lcd.setCursor(0, 1); lcd.print("                    ");     
-      lcd.setCursor(0, 2); lcd.print("                    ");
-      lcd.setCursor(0, 3); lcd.print("                    ");
-    }
-    void menuPrev() {
-      if(route>0) route--;
-    }
-    void menuNext() {
-      if(route<2) route++;
-    }    
-    void menuEnter() {
-      subroute=1;
-    }    
-    void submenuPrev() {
-      if(subroute>0) {
-        subroute--;
-      }
-    }
-    void submenuNext() {
-      if(route==0&&subroute<3) subroute++;
-      if(route==1&&subroute<5) subroute++;
-      if(route==2&&subroute<3) subroute++;
-    }    
-    boolean setActive() {
-      active = true;
-      activeEntered = true;
-      return true;
-    }
-    boolean setInactive() {
-      if(blockedActive) return false;
-      active = false;
-      activeEntered = false;
-      return true;
-    }
-};
 
-class Event{
-  public:
-    boolean fired = false;
-    unsigned long payloadLong = 0;
-    unsigned int payloadInt = 0;
-    String payloadString = "";
-    void emit(unsigned long _payloadLong=0,unsigned int _payloadInt=0) {
-      payloadLong = _payloadLong;
-      payloadInt = _payloadInt;
-      fired = true;
-    }
-    void absorb() {
-      fired = false;
-    }
-};
+#include "classes/state.ino";
+#include "classes/event.ino";
+#include "classes/config.ino";
+#include "classes/results.ino";
+#include "classes/radio.ino";
 
-class Config {
-  public:
-    unsigned int FS_KEY = 0; byte FS_KEY_addr = 0; // 0 2
-    byte MODE = 1;  byte MODE_addr = 2; // 2  1
-    unsigned int LAPS_N = 3; byte LAPS_N_addr = 3; // 3 2
-    unsigned int SENSOR_IGNORE_TIME = 3; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
-    boolean MUTE = false; byte MUTE_addr = 7; // 7  1
-    boolean SAVE_RESULTS = false; byte SAVE_RESULTS_addr = 8; // 7  1
-    Config() {
-      EEPROM.get(0, FS_KEY);
-      if(FS_KEY!=12346) { // First start
-        Serial.println();
-        Serial.println("First start, writing defaults...");
-        EEPROM.put(FS_KEY_addr, 12346);
-        EEPROM.put(MODE_addr, MODE);
-        EEPROM.put(LAPS_N_addr, LAPS_N);
-        EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
-        EEPROM.put(MUTE_addr, MUTE);
-        EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
-        EEPROM.put(RESULTS_EEPROM_SHIFT, RESULTS_EEPROM_SHIFT+2);
-        Serial.println("Done");
-        read();
-        print();
-      }
-    }
-    void read() {
-      EEPROM.get(FS_KEY_addr, FS_KEY);
-      EEPROM.get(MODE_addr, MODE);
-      EEPROM.get(LAPS_N_addr, LAPS_N);
-      EEPROM.get(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
-      EEPROM.get(MUTE_addr, MUTE);
-      EEPROM.get(SAVE_RESULTS_addr, SAVE_RESULTS);
-    };
 
-    void print() {
-      Serial.println("Config: ");
-      Serial.print("FS_KEY: "); Serial.println(FS_KEY);
-      Serial.print("MODE: "); Serial.println(MODE);
-      Serial.print("LAPS_N: "); Serial.println(LAPS_N);
-      Serial.print("SENSOR_IGNORE_TIME: "); Serial.println(SENSOR_IGNORE_TIME);
-      Serial.print("MUTE: "); Serial.println(MUTE);
-      Serial.print("SAVE_RESULTS: "); Serial.println(SAVE_RESULTS);
-      Serial.println();
-    }
-
-    void setMODE() {
-      EEPROM.put(MODE_addr, MODE);
-    }
-    void setLAPS_N() {
-      EEPROM.put(LAPS_N_addr, LAPS_N);
-    }
-    void setSENSOR_IGNORE_TIME() {
-      EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
-    }
-    void setMUTE() {
-      EEPROM.put(MUTE_addr, MUTE);
-    }
-    void setSAVE_RESULTS() {
-      EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
-    }
-
-    void setMODE(byte value) {
-      if(value == MODE) return;
-      MODE = value;
-      EEPROM.put(MODE_addr, MODE);
-    }
-    void setLAPS_N(unsigned int value) {
-      if(value == LAPS_N) return;
-      LAPS_N = value;
-      EEPROM.put(LAPS_N_addr, LAPS_N);
-    }
-    void setSENSOR_IGNORE_TIME(unsigned int value) {
-      if(value == SENSOR_IGNORE_TIME) return;
-      SENSOR_IGNORE_TIME = value;
-      EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
-    }
-    void setMUTE(boolean value) {
-      if(value == MUTE) return;
-      MUTE = value;
-      EEPROM.put(MUTE_addr, MUTE);
-    }
-    void setSAVE_RESULTS(boolean value) {
-      if(value == SAVE_RESULTS) return;
-      SAVE_RESULTS = value;
-      EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
-    }
-
-};
-
-struct resultRow{
-  unsigned int r;
-  unsigned long t;
-};
-
-class Results {
-  public:
-    unsigned int last_addr = 0;
-    Results() {
-      EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
-      //Serial.print("last_addr: ");
-      //Serial.println(last_addr);
-    }
-    struct resultRow read(unsigned int i) {
-      resultRow row;
-      //Serial.print("Read form address: "); Serial.println(RESULTS_EEPROM_SHIFT + 2 + i*sizeof(resultRow));
-      EEPROM.get(RESULTS_EEPROM_SHIFT + 2 + i*sizeof(resultRow), row);
-      return row;
-    }
-    int unsigned write(int unsigned racer, long unsigned time) {
-      resultRow row;
-      int unsigned last_addr;
-      row.r = racer;
-      row.t = time;
-      EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
-      EEPROM.put(RESULTS_EEPROM_SHIFT + 2 + last_addr, row);
-      last_addr += sizeof(resultRow);
-      EEPROM.put(RESULTS_EEPROM_SHIFT, last_addr);
-      //Serial.print("Write to address: "); Serial.println(RESULTS_EEPROM_SHIFT + 2 + last_addr);
-      Serial.println("Result saved");
-      return last_addr;
-    }
-    void printAll(int r=0) {
-      unsigned int last_addr = EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
-      if(last_addr==0) return;
-      resultRow stored_row; 
-      for(int i=0; i*sizeof(resultRow)<=(last_addr-sizeof(resultRow)); i++) {
-          stored_row = read(i);
-          if(r==0 || stored_row.r==r) {
-            Serial3.print(stored_row.r);Serial3.print(" ");Serial3.print(millisToTime(stored_row.t));Serial3.print("\n");
-          }
-        if(i>99) return;
-      }
-    }
-    void clearAll() {
-      Serial.println("Clear all");
-      last_addr = 0;
-      EEPROM.put(RESULTS_EEPROM_SHIFT, last_addr);
-      //Serial.println("last_addr: ");  Serial.println(last_addr);
-    }
-
-};
 
 State state(0,1,false);
 
@@ -339,6 +88,7 @@ Event events[] = {event0,event1,event2,event3,event4,event5};
 
 Config config;
 Results results;
+Radio radioModule;
 
 void setup() {
 
@@ -505,6 +255,9 @@ void handler() {
       if(state.route==2 && state.subroute==1) {
         allValues();
       }
+      if(state.route==2 && state.subroute==4) {
+        testRadio();
+      }
 
       state.activeEntered = false;
     }
@@ -549,6 +302,20 @@ void allValues() {
   }
 
 }
+
+void testRadio() {
+
+  if(state.activeEntered) {
+    radioModule.init();
+  }
+
+  if(events[4].fired) {
+    radioModule.close();
+  }
+
+
+}
+
 
 //MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS
 String sN[6] = {
@@ -825,7 +592,8 @@ String millisToMillis(long unsigned time){
 }
 void beep(unsigned int freq, unsigned int duration) {
   if(config.MUTE) return;
-  tone(BEEP_S, freq,duration);
+  //tone(BEEP_S, freq,duration);
+  tone(EXTERNAL_AUDIO, freq,duration);
 }
 
 template<typename T>
@@ -894,139 +662,4 @@ void SerialRouter() {
 
 
 
-const int num_reps = 100;
 
-int serial_putc( char c, FILE * ) {
-  Serial.write( c );
-  return c;
-}
-
-void printf_begin(void) {
-  fdevopen( &serial_putc, 0 );
-}
-
-boolean radioInited = false;
-void initRadio() {
-  digitalWrite(RADIO_PWR_ON, HIGH);
-  delay(2000);
-
-  Serial.begin(9600); //открываем порт для связи с ПК
-
-  radio.begin(); //активировать модуль
-  radio.setAutoAck(1);         //режим подтверждения приёма, 1 вкл 0 выкл
-  radio.setRetries(0, 15);    //(время между попыткой достучаться, число попыток)
-  radio.enableAckPayload();    //разрешить отсылку данных в ответ на входящий сигнал
-  radio.setPayloadSize(32);     //размер пакета, в байтах
-
-  radio.openWritingPipe(address[0]);   //мы - труба 0, открываем канал для передачи данных
-  radio.setChannel(0x60);  //выбираем канал (в котором нет шумов!)
-
-  radio.setPALevel (RF24_PA_MAX); //уровень мощности передатчика. На выбор RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
-  radio.setDataRate (RF24_250KBPS); //скорость обмена. На выбор RF24_2MBPS, RF24_1MBPS, RF24_250KBPS
-  //должна быть одинакова на приёмнике и передатчике!
-  //при самой низкой скорости имеем самую высокую чувствительность и дальность!!
-
-  radio.powerUp(); //начать работу
-  radio.stopListening();  //не слушаем радиоэфир, мы передатчик
-
-
-
-  // printf_begin();
-  // radio.begin();
-  // radio.setAutoAck(false);
-  // radio.startListening();
-
-  // radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
-  // delay(1000);              // И посмотрим на это пять секунд.
-
-  // radio.stopListening();
-  // int i = 0;    // А это напечатает нам заголовки всех 127 каналов
-  // while ( i < num_channels )  {
-  //   printf("%x",i>>4);
-  //   ++i;
-  // }
-  // printf("\n\r");
-  // i = 0;
-  // while ( i < num_channels ) {
-  //   printf("%x",i&0xf);
-  //   ++i;
-  // }
-  // printf("\n\r");
-
-
-  radioInited = true;
-}
-
-void initRadioForScan() {
-  digitalWrite(RADIO_PWR_ON, HIGH);
-  delay(2000);
-
-  printf_begin();
-  radio.begin();
-  radio.setAutoAck(false);
-  radio.startListening();
-
-  radio.printDetails();  // Вот эта строка напечатает нам что-то, если все правильно соединили.
-  delay(1000);              // И посмотрим на это пять секунд.
-
-  radio.stopListening();
-  int i = 0;    // А это напечатает нам заголовки всех 127 каналов
-  while ( i < num_channels )  {
-    printf("%x",i>>4);
-    ++i;
-  }
-  printf("\n\r");
-  i = 0;
-  while ( i < num_channels ) {
-    printf("%x",i&0xf);
-    ++i;
-  }
-  printf("\n\r");
-
-
-  radioInited = true;
-}
-
-
-void scanRadio() {
-  if(!radioInited) return;
-  memset(values,0,sizeof(values));
-  int rep_counter = num_reps;
-  while (rep_counter--) {
-    int i = num_channels;
-    while (i--) {
-      radio.setChannel(i);
-      radio.startListening();
-      delayMicroseconds(128);
-      radio.stopListening();
-      if ( radio.testCarrier() )
-        ++values[i];
-    }
-  }
-  int i = 0;
-  while ( i < num_channels ) {
-    printf("%x",min(0xf,values[i]&0xf));
-    ++i;
-  }
-  printf("\n\r");
-
-}
-
-void sendRadio() {
-  if(!radioInited) return;
-  Serial.print("Sent: "); Serial.println(counter);
-  radio.write(&counter, sizeof(counter));
-  counter++;
-  delay(10);
-}
-
-void ATCommands() {
-  if (Serial3.available()) {
-      char c = Serial3.read();  // читаем из software-порта
-      Serial.print(c);                   // пишем в hardware-порт
-  }
-  if (Serial.available()) {
-      char c = Serial.read();      // читаем из hardware-порта
-      Serial3.write(c);            // пишем в software-порт
-  }
-}
