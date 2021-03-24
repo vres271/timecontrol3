@@ -592,8 +592,8 @@ String millisToMillis(long unsigned time){
 }
 void beep(unsigned int freq, unsigned int duration) {
   if(config.MUTE) return;
-  //tone(BEEP_S, freq,duration);
-  tone(EXTERNAL_AUDIO, freq,duration);
+  tone(BEEP_S, freq,duration);
+  //tone(EXTERNAL_AUDIO, freq,duration);
 }
 
 template<typename T>
