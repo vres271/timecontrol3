@@ -415,6 +415,10 @@ unsigned long min_lap_duration = 0;
 unsigned int laps_counter = 0;
 unsigned long last_timer_update = 0;
 unsigned long last_timer_update_millis = 0;
+unsigned long record_lap = 0;
+unsigned long record_lap_racer = 0;
+unsigned long record_all = 0;
+unsigned long result_time = 0;
 byte race_state = 0; // wait, started, finished, ignore
 
 void resetRace() {
@@ -424,7 +428,8 @@ void resetRace() {
     lap_duration = 0;
     min_lap_duration = 0;
     laps_counter = 0;
-    race_state = 0;    
+    race_state = 0; 
+    result_time = 0;   
 }
 
 void race() {
@@ -478,8 +483,20 @@ void race() {
         lap_t = events[1].payloadLong;
         laps_counter=laps_counter+1;
         beep(600,50);
-        Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(millisToTime(lap_duration)); Serial.print("\n");
-        Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(millisToTime(lap_duration)); Serial3.print("\n");
+        Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(millisToTime(lap_duration)); 
+        Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(millisToTime(lap_duration)); 
+
+        if(record_lap==0) record_lap = lap_duration;
+        if(lap_duration<record_lap) {
+          record_lap = lap_duration;
+          record_lap_racer = racer;
+          beep(10,80);
+          Serial.print(" New Record lap");
+          Serial3.print(" New Record lap"); 
+        }
+        Serial.print("\n");
+        Serial3.print("\n");
+
         lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
         if(laps_counter>=config.LAPS_N) {
           race_state=2;
@@ -489,15 +506,23 @@ void race() {
     }
   } else if(race_state==2) { // race finished
     beep(100,200);
-    Serial.print("Finished "); Serial.print(" : "); Serial.print(millisToTime(finish_t - start_t)); Serial.print("\n");
-    Serial3.print("Finished "); Serial3.print(" : "); Serial3.print(millisToTime(finish_t - start_t)); Serial3.print("\n");
+    result_time = finish_t - start_t;
+    Serial.print("Finished "); Serial.print(" : "); Serial.print(millisToTime(result_time)); Serial.print("\n");
+    Serial3.print("Finished "); Serial3.print(" : "); Serial3.print(millisToTime(result_time)); Serial3.print("\n");
+    if(record_all==0) record_all = result_time;
+    if(result_time<record_all) {
+      record_all = result_time;
+      beep(20,1000);
+      Serial.print("\n"); Serial.print("New Record result "); Serial.print(" : R"); Serial.print(racer); Serial.print(" : "); Serial.print(millisToTime(record_all)); Serial.print("\n");
+      Serial3.print("\n"); Serial3.print("New Record result "); Serial3.print(" : R"); Serial3.print(racer); Serial3.print(" : "); Serial3.print(millisToTime(record_all)); Serial3.print("\n");
+    }
     if(config.SAVE_RESULTS) {
-      results.write(racer,finish_t - start_t);
+      results.write(racer,result_time);
     }
     //lcd.setCursor(0, 1); lcd.print("                    "); 
     lcd.setCursor(13, 1); lcd.print("Ready  ");
     lcd.setCursor(0, 2); lcd.print("                    "); lcd.setCursor(0, 2); lcd.print("Best:  "); lcd.print(millisToTime(min_lap_duration));
-    lcd.setCursor(0, 3); lcd.print("                    "); lcd.setCursor(0, 3); lcd.print("All:   "); lcd.print(millisToTime(finish_t - start_t));
+    lcd.setCursor(0, 3); lcd.print("                    "); lcd.setCursor(0, 3); lcd.print("All:   "); lcd.print(millisToTime(result_time));
     //setLaser(false);
     resetRace();
   }
