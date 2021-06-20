@@ -415,10 +415,13 @@ unsigned long min_lap_duration = 0;
 unsigned int laps_counter = 0;
 unsigned long last_timer_update = 0;
 unsigned long last_timer_update_millis = 0;
+unsigned long result_time = 0;
 unsigned long record_lap = 0;
 unsigned long record_lap_racer = 0;
 unsigned long record_all = 0;
-unsigned long result_time = 0;
+unsigned long record_lap_bck = 0;
+unsigned long record_lap_racer_bck = 0;
+unsigned long record_all_bck = 0;
 byte race_state = 0; // wait, started, finished, ignore
 
 void resetRace() {
@@ -430,6 +433,18 @@ void resetRace() {
     laps_counter = 0;
     race_state = 0; 
     result_time = 0;   
+
+    record_lap_bck = record_lap;
+    record_lap_racer_bck = record_lap_racer;
+    record_all_bck = record_all;    
+}
+
+void cancelRace() {
+    record_lap = record_lap_bck;
+    record_lap_racer = record_lap_racer_bck;
+    record_all = record_all_bck;    
+    Serial.print("\n"); Serial.print("Race canceled");  Serial.println("\n");
+    Serial3.print("\n"); Serial3.print("Race canceled");  Serial3.println("\n");
 }
 
 void race() {
@@ -503,6 +518,9 @@ void race() {
           finish_t = events[1].payloadLong;
         }
       }
+    }
+    if(events[4].fired) {
+      cancelRace();
     }
   } else if(race_state==2) { // race finished
     beep(100,200);

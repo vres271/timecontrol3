@@ -38,6 +38,7 @@ class Results {
           stored_row = read(i);
           if(r==0 || stored_row.r==r) {
             Serial3.print(stored_row.r);Serial3.print(" ");Serial3.print(millisToTime(stored_row.t));Serial3.print("\n");
+            Serial.print(stored_row.r);Serial.print(" ");Serial.print(millisToTime(stored_row.t));Serial.print("\n");
           }
         if(i>99) return;
       }
