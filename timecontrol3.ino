@@ -62,9 +62,9 @@ boolean recievedFlag;
 
 
 const char *menu[][10]  = {
-  {"Race","Get ready","Results","Clear"},
+  {"Race","Get ready","Results","Records"},
   {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
-  {"Test","All values","Time","Blink","Radio"},
+  {"Test","All values","Aim","Blink","Radio"},
 };
 
 
@@ -246,6 +246,7 @@ void handler() {
       }
 
       if(state.route==0 && state.subroute==3) {
+        recordsPage();
       }
 
       if(state.route==1 && state.subroute) {
@@ -254,6 +255,9 @@ void handler() {
 
       if(state.route==2 && state.subroute==1) {
         allValues();
+      }
+      if(state.route==2 && state.subroute==2) {
+        aim();
       }
       if(state.route==2 && state.subroute==4) {
         testRadio();
@@ -303,6 +307,47 @@ void allValues() {
 
 }
 
+unsigned int aimPer = 0;
+unsigned long l_lst_v = 0;
+void aim() {
+
+  if(state.activeEntered) {
+    setLaser(true);
+  }
+
+  if(t > l_lst_v+300) {
+    lcd.setCursor(0, 1); lcd.print("     "); 
+    lcd.setCursor(0, 1); lcd.print(analogRead(LASER_SENS_S));
+    l_lst_v = t;
+  }
+
+  if(t > l_lst+100) {
+    aimPer = map(analogRead(LASER_SENS_S), 0, 1023, 20, 0);
+    lcd.setCursor(0, 2); //lcd.print("                      "); 
+    for(int i=0; i<20; i++){
+        if(i < aimPer) {
+          lcd.print("#");
+        } else {
+          lcd.print(" ");
+        }
+    }
+    lcd.setCursor(0, 3); //lcd.print("                      "); 
+    for(int i=0; i<20; i++){
+        if(i < aimPer) {
+          lcd.print("#");
+        } else {
+          lcd.print(" ");
+        }
+    }
+    l_lst = t;
+  }
+
+  if(events[4].fired) {
+    
+  }
+
+
+}
 void testRadio() {
 
   if(state.activeEntered) {
@@ -419,9 +464,11 @@ unsigned long result_time = 0;
 unsigned long record_lap = 0;
 unsigned long record_lap_racer = 0;
 unsigned long record_all = 0;
+unsigned long record_all_racer = 0;
 unsigned long record_lap_bck = 0;
 unsigned long record_lap_racer_bck = 0;
 unsigned long record_all_bck = 0;
+unsigned long record_all_racer_bck = 0;
 byte race_state = 0; // wait, started, finished, ignore
 
 void resetRace() {
@@ -434,17 +481,27 @@ void resetRace() {
     race_state = 0; 
     result_time = 0;   
 
-    record_lap_bck = record_lap;
-    record_lap_racer_bck = record_lap_racer;
-    record_all_bck = record_all;    
+    // record_lap_bck = record_lap;
+    // record_lap_racer_bck = record_lap_racer;
+    // record_all_bck = record_all;    
 }
 
 void cancelRace() {
     record_lap = record_lap_bck;
     record_lap_racer = record_lap_racer_bck;
     record_all = record_all_bck;    
+    record_all_racer = record_all_racer_bck;    
     Serial.print("\n"); Serial.print("Race canceled");  Serial.println("\n");
     Serial3.print("\n"); Serial3.print("Race canceled");  Serial3.println("\n");
+}
+
+void clearRecords() {
+    record_lap = 0;
+    record_lap_racer = 0;
+    record_all = 0;    
+    record_all_racer = 0;    
+    Serial.print("\n"); Serial.print("Records cleared");  Serial.println("\n");
+    Serial3.print("\n"); Serial3.print("Records cleared");  Serial3.println("\n");
 }
 
 void race() {
@@ -471,6 +528,10 @@ void race() {
         start_t = events[1].payloadLong;
         lap_t = events[1].payloadLong;
         race_state=1;
+        record_lap_bck = record_lap;
+        record_lap_racer_bck = record_lap_racer;
+        record_all_bck = record_all;    
+        record_all_racer_bck = record_all_racer;    
         beep(800,200);
         Serial.print("\n"); Serial.print("R"); Serial.print(racer); Serial.println(" started");
         Serial3.print("\n"); Serial3.print("R"); Serial3.print(racer); Serial3.println(" started");
@@ -530,6 +591,7 @@ void race() {
     if(record_all==0) record_all = result_time;
     if(result_time<record_all) {
       record_all = result_time;
+      record_all_racer = racer;
       beep(20,1000);
       Serial.print("\n"); Serial.print("New Record result "); Serial.print(" : R"); Serial.print(racer); Serial.print(" : "); Serial.print(millisToTime(record_all)); Serial.print("\n");
       Serial3.print("\n"); Serial3.print("New Record result "); Serial3.print(" : R"); Serial3.print(racer); Serial3.print(" : "); Serial3.print(millisToTime(record_all)); Serial3.print("\n");
@@ -594,6 +656,65 @@ void resultsPage() {
         results.clearAll();
         lcd.setCursor(8, results_action+1); lcd.print(" Cleared");
         results_clear_confirm = false;
+      }
+    }
+  }
+
+}
+
+byte records_action = 0;
+boolean records_clear_confirm = false;
+
+void showRecords() {
+    lcd.setCursor(0, 1); lcd.print("Race: "); lcd.print(record_lap_racer); lcd.print(": "); lcd.print(millisToTime(record_lap));
+    lcd.setCursor(0, 2); lcd.print("Lap:  "); lcd.print(record_all_racer); lcd.print(": "); lcd.print(millisToTime(record_all));
+    lcd.setCursor(0, 3); lcd.print("Clear ");
+}
+
+void recordsPage() {
+
+  if(state.activeEntered) {
+    records_action = 0;
+    records_clear_confirm = false;
+    state.blockedActive = true;
+    showRecords();
+  }
+  if(events[2].fired) { // left
+    if(records_action>0) {
+      records_clear_confirm = false;
+      lcd.setCursor(6, 3); lcd.print("          ");
+      records_action=0;
+    } else { // exit to submenu
+      state.blockedActive = false;
+      state.setInactive();
+      state.clearDisplay();
+      state.displayState();
+    }
+  }
+  if(events[3].fired) { // right
+    if(records_action==0) {
+      records_clear_confirm = false;
+      lcd.setCursor(6, 3); lcd.print("          ");
+      records_action=1;
+      lcd.setCursor(6, 3); lcd.print("<");
+    }
+  }
+  if(events[4].fired) {
+    if(records_action==0) {
+      //lcd.setCursor(6, 3); lcd.print(">"); lcd.print(" OK ");
+    } else if (records_action==1) {
+      //results.printAll();
+      if(!records_clear_confirm) {
+        lcd.setCursor(8, 3); lcd.print(" Sure?  ");
+        records_clear_confirm = true;
+      } else {
+        clearRecords();
+        lcd.setCursor(8, 3); lcd.print(" Cleared");
+        records_clear_confirm = false;
+        records_action = 0;
+        lcd.setCursor(6, 1); lcd.print("              ");
+        lcd.setCursor(6, 2); lcd.print("              ");       
+        showRecords();
       }
     }
   }
