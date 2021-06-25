@@ -46,7 +46,7 @@ class State{
     }
     void submenuNext() {
       if(route==0&&subroute<4) subroute++;
-      if(route==1&&subroute<5) subroute++;
+      if(route==1&&subroute<6) subroute++;
       if(route==2&&subroute<4) subroute++;
     }    
     boolean setActive() {

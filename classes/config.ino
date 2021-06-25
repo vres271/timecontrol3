@@ -6,6 +6,7 @@ class Config {
     unsigned int SENSOR_IGNORE_TIME = 3; byte SENSOR_IGNORE_TIME_addr = 5; // 5  2
     boolean MUTE = false; byte MUTE_addr = 7; // 7  1
     boolean SAVE_RESULTS = false; byte SAVE_RESULTS_addr = 8; // 7  1
+    boolean EXTERNAL_AUDIO_ON = false; byte EXTERNAL_AUDIO_ON_addr = 9; // 8  1
     Config() {
       EEPROM.get(0, FS_KEY);
       if(FS_KEY!=12346) { // First start
@@ -17,6 +18,7 @@ class Config {
         EEPROM.put(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
         EEPROM.put(MUTE_addr, MUTE);
         EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
+        EEPROM.put(EXTERNAL_AUDIO_ON_addr, EXTERNAL_AUDIO_ON);
         EEPROM.put(RESULTS_EEPROM_SHIFT, RESULTS_EEPROM_SHIFT+2);
         Serial.println("Done");
         read();
@@ -30,6 +32,7 @@ class Config {
       EEPROM.get(SENSOR_IGNORE_TIME_addr, SENSOR_IGNORE_TIME);
       EEPROM.get(MUTE_addr, MUTE);
       EEPROM.get(SAVE_RESULTS_addr, SAVE_RESULTS);
+      EEPROM.get(EXTERNAL_AUDIO_ON_addr, EXTERNAL_AUDIO_ON);
     };
 
     void print() {
@@ -40,6 +43,7 @@ class Config {
       Serial.print("SENSOR_IGNORE_TIME: "); Serial.println(SENSOR_IGNORE_TIME);
       Serial.print("MUTE: "); Serial.println(MUTE);
       Serial.print("SAVE_RESULTS: "); Serial.println(SAVE_RESULTS);
+      Serial.print("EXTERNAL_AUDIO_ON: "); Serial.println(EXTERNAL_AUDIO_ON);
       Serial.println();
     }
 
@@ -57,6 +61,9 @@ class Config {
     }
     void setSAVE_RESULTS() {
       EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
+    }
+    void setEXTERNAL_AUDIO_ON() {
+      EEPROM.put(EXTERNAL_AUDIO_ON_addr, EXTERNAL_AUDIO_ON);
     }
 
     void setMODE(byte value) {
@@ -83,6 +90,11 @@ class Config {
       if(value == SAVE_RESULTS) return;
       SAVE_RESULTS = value;
       EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
+    }
+    void setEXTERNAL_AUDIO_ON(boolean value) {
+      if(value == EXTERNAL_AUDIO_ON) return;
+      EXTERNAL_AUDIO_ON = value;
+      EEPROM.put(EXTERNAL_AUDIO_ON_addr, EXTERNAL_AUDIO_ON);
     }
 
 };

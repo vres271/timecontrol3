@@ -63,7 +63,7 @@ boolean recievedFlag;
 
 const char *menu[][10]  = {
   {"Race","Get ready","Results","Records","Summary"},
-  {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
+  {"Set","Mode","Laps N","Ignore time","Save results","Sounds","External audio"},
   {"Test","All values","Aim","Blink","Radio"},
 };
 
@@ -366,14 +366,15 @@ void testRadio() {
 }
 
 
-//MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS
-String sN[6] = {
+//MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS, EXTERNAL_AUDIO_ON
+String sN[7] = {
   ""
   ,"RACE MODE"
   ,"LAPS NUMBER"
   ,"SENS IGNORE TMT"
   ,"SAVE TO EEPROM"
   ,"MUTE SOUNDS"  
+  ,"EXTERNAL AUDIO ON"  
 };
 void clearForValue(unsigned int valueLength) {
   lcd.setCursor(sN[state.subroute].length()+2, 1); 
@@ -392,6 +393,7 @@ void settings() {
     if(state.subroute==3) {lcd.print(sN[state.subroute]+": "); lcd.print(config.SENSOR_IGNORE_TIME);}
     if(state.subroute==4) {lcd.print(sN[state.subroute]+": "); lcd.print(config.SAVE_RESULTS);}
     if(state.subroute==5) {lcd.print(sN[state.subroute]+": "); lcd.print(config.MUTE);}
+    if(state.subroute==6) {lcd.print(sN[state.subroute]+": "); lcd.print(config.EXTERNAL_AUDIO_ON);}
   }
   if(state.subroute==1) {
     if(events[2].fired) { // enc left
@@ -443,12 +445,23 @@ void settings() {
       clearForValue(3); lcd.print(config.MUTE);
     }
   }
+  if(state.subroute==6) {
+    if(events[2].fired) { // enc left
+      if(!config.EXTERNAL_AUDIO_ON) return; config.EXTERNAL_AUDIO_ON=false;
+      clearForValue(3); lcd.print(config.EXTERNAL_AUDIO_ON);
+    }
+    if(events[3].fired) { // enc right
+      if(config.EXTERNAL_AUDIO_ON) return; config.EXTERNAL_AUDIO_ON=true;
+      clearForValue(3); lcd.print(config.EXTERNAL_AUDIO_ON);
+    }
+  }
   if(events[4].fired) {
     if(state.subroute==1) {config.setMODE();}
     if(state.subroute==2) {config.setLAPS_N();}
     if(state.subroute==3) {config.setSENSOR_IGNORE_TIME();}
     if(state.subroute==4) {config.setSAVE_RESULTS();}
     if(state.subroute==5) {config.setMUTE();}
+    if(state.subroute==6) {config.setEXTERNAL_AUDIO_ON();}
     config.read();
     config.print();
   }
@@ -570,7 +583,7 @@ void race() {
         if(lap_duration<record_lap) {
           record_lap = lap_duration;
           record_lap_racer = racer;
-          beep(10,80);
+          beep(70,1000);
           Serial.print(" New Record lap");
           Serial3.print(" New Record lap"); 
         }
@@ -588,7 +601,7 @@ void race() {
       cancelRace();
     }
   } else if(race_state==2) { // race finished
-    beep(100,200);
+    beep(300,300);
     result_time = finish_t - start_t;
     Serial.print("Finished "); Serial.print(" : "); Serial.print(millisToTime(result_time)); Serial.print("\n");
     Serial3.print("Finished "); Serial3.print(" : "); Serial3.print(millisToTime(result_time)); Serial3.print("\n");
@@ -596,7 +609,7 @@ void race() {
     if(result_time<record_all) {
       record_all = result_time;
       record_all_racer = racer;
-      beep(20,1000);
+      beep(45,1500);
       Serial.print("\n"); Serial.print("New Record result "); Serial.print(" : R"); Serial.print(racer); Serial.print(" : "); Serial.print(millisToTime(record_all)); Serial.print("\n");
       Serial3.print("\n"); Serial3.print("New Record result "); Serial3.print(" : R"); Serial3.print(racer); Serial3.print(" : "); Serial3.print(millisToTime(record_all)); Serial3.print("\n");
     }
@@ -766,8 +779,11 @@ String millisToMillis(long unsigned time){
 }
 void beep(unsigned int freq, unsigned int duration) {
   if(config.MUTE) return;
-  tone(BEEP_S, freq,duration);
-  //tone(EXTERNAL_AUDIO, freq,duration);
+  if(config.EXTERNAL_AUDIO_ON) {
+    tone(EXTERNAL_AUDIO, freq,duration);
+  } else {
+    tone(BEEP_S, freq,duration);
+  }
 }
 
 template<typename T>
