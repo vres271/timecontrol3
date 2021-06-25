@@ -62,7 +62,7 @@ boolean recievedFlag;
 
 
 const char *menu[][10]  = {
-  {"Race","Get ready","Results","Records"},
+  {"Race","Get ready","Results","Records","Summary"},
   {"Set","Mode","Laps N","Ignore time","Save results","Sounds"},
   {"Test","All values","Aim","Blink","Radio"},
 };
@@ -247,6 +247,10 @@ void handler() {
 
       if(state.route==0 && state.subroute==3) {
         recordsPage();
+      }
+
+      if(state.route==0 && state.subroute==4) {
+        summaryPage();
       }
 
       if(state.route==1 && state.subroute) {
@@ -719,6 +723,12 @@ void recordsPage() {
     }
   }
 
+}
+
+void summaryPage() {
+  if(state.activeEntered) {
+    results.getSummary(true);
+  }
 }
 
 
