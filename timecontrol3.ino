@@ -521,6 +521,7 @@ void clearRecords() {
     Serial3.print("\n"); Serial3.print("Records cleared");  Serial3.println("\n");
 }
 
+unsigned long lastFixedSensorTime = 0;
 void race() {
   if(state.activeEntered) {
     resetRace();
@@ -541,8 +542,9 @@ void race() {
       lcd.setCursor(2, 1); lcd.print("     "); lcd.setCursor(2, 1); lcd.print(racer);
     }
     if(events[1].fired) { // on sensor
-      if(events[1].payloadLong > start_t + config.SENSOR_IGNORE_TIME*1000) {
+      if(events[1].payloadLong > lastFixedSensorTime + config.SENSOR_IGNORE_TIME*1000) {
         start_t = events[1].payloadLong;
+        lastFixedSensorTime = events[1].payloadLong;
         lap_t = events[1].payloadLong;
         race_state=1;
         record_lap_bck = record_lap;
@@ -568,8 +570,9 @@ void race() {
       last_timer_update_millis = t;
     }
     if(events[1].fired) { // on sensor
-      if(events[1].payloadLong > lap_t + config.SENSOR_IGNORE_TIME*1000) {
+      if(events[1].payloadLong > lastFixedSensorTime + config.SENSOR_IGNORE_TIME*1000) {
         lap_duration = events[1].payloadLong - lap_t;
+        lastFixedSensorTime = events[1].payloadLong;
         if(min_lap_duration==0||lap_duration<min_lap_duration) {
           min_lap_duration = lap_duration;
         }
