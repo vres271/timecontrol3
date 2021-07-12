@@ -508,8 +508,7 @@ void cancelRace() {
     record_lap_racer = record_lap_racer_bck;
     record_all = record_all_bck;    
     record_all_racer = record_all_racer_bck;    
-    Serial.print("\n"); Serial.print("Race canceled");  Serial.println("\n");
-    Serial3.print("\n"); Serial3.print("Race canceled");  Serial3.println("\n");
+    log("\nRace canceled\n");
 }
 
 void clearRecords() {
@@ -517,8 +516,7 @@ void clearRecords() {
     record_lap_racer = 0;
     record_all = 0;    
     record_all_racer = 0;    
-    Serial.print("\n"); Serial.print("Records cleared");  Serial.println("\n");
-    Serial3.print("\n"); Serial3.print("Records cleared");  Serial3.println("\n");
+    log("\nRecords cleared\n");
 }
 
 unsigned long lastFixedSensorTime = 0;
@@ -526,8 +524,7 @@ void race() {
   if(state.activeEntered) {
     resetRace();
     setLaser(true);
-    Serial.print("\n"); Serial.print("Laps: "); Serial.print(config.LAPS_N); Serial.println(" : Ready...");
-    Serial3.print("\n"); Serial3.print("Laps: "); Serial3.print(config.LAPS_N); Serial3.println(" : Ready...");
+    log("\nLaps: "+String(config.LAPS_N)+" : Ready...");
     lcd.setCursor(0, 1); lcd.print("                    "); lcd.setCursor(0, 1); lcd.print("R:"); lcd.print(racer); lcd.setCursor(6, 1); lcd.print(" L:"); lcd.setCursor(9, 1); lcd.print(config.LAPS_N); lcd.setCursor(13, 1); lcd.print(" Ready");
     lcd.setCursor(0, 2); lcd.print("SAVE TO EEPROM: "); lcd.print(config.SAVE_RESULTS?"YES":"NO"); 
   }
@@ -552,9 +549,7 @@ void race() {
         record_all_bck = record_all;    
         record_all_racer_bck = record_all_racer;    
         beep(800,200);
-        Serial.print("\n"); Serial.print("R"); Serial.print(racer); Serial.println(" started");
-        Serial3.print("\n"); Serial3.print("R"); Serial3.print(racer); Serial3.println(" started");
-        //lcd.setCursor(0, 1); lcd.print("                    "); 
+        log("\nR"+String(racer)+" started\n");
         lcd.setCursor(13, 1); lcd.print("Started");
         lcd.setCursor(0, 2); lcd.print("                    "); 
         lcd.setCursor(0, 3); lcd.print("Timer:              "); 
@@ -579,19 +574,16 @@ void race() {
         lap_t = events[1].payloadLong;
         laps_counter=laps_counter+1;
         beep(600,50);
-        Serial.print("Lap "); Serial.print(laps_counter); Serial.print(" : "); Serial.print(millisToTime(lap_duration)); 
-        Serial3.print("Lap "); Serial3.print(laps_counter); Serial3.print(" : "); Serial3.print(millisToTime(lap_duration)); 
+        log("Lap "+String(laps_counter)+" : "+String(millisToTime(lap_duration))); 
 
         if(record_lap==0) record_lap = lap_duration;
         if(lap_duration<record_lap) {
           record_lap = lap_duration;
           record_lap_racer = racer;
           beep(70,1000);
-          Serial.print(" New Record lap");
-          Serial3.print(" New Record lap"); 
+          log(" New Record lap");
         }
-        Serial.print("\n");
-        Serial3.print("\n");
+        log("\n");
 
         lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
         if(laps_counter>=config.LAPS_N) {
@@ -606,15 +598,13 @@ void race() {
   } else if(race_state==2) { // race finished
     beep(300,300);
     result_time = finish_t - start_t;
-    Serial.print("Finished "); Serial.print(" : "); Serial.print(millisToTime(result_time)); Serial.print("\n");
-    Serial3.print("Finished "); Serial3.print(" : "); Serial3.print(millisToTime(result_time)); Serial3.print("\n");
+    log("Finished  : "+String(millisToTime(result_time))+"\n");
     if(record_all==0) record_all = result_time;
     if(result_time<record_all) {
       record_all = result_time;
       record_all_racer = racer;
       beep(45,1500);
-      Serial.print("\n"); Serial.print("New Record result "); Serial.print(" : R"); Serial.print(racer); Serial.print(" : "); Serial.print(millisToTime(record_all)); Serial.print("\n");
-      Serial3.print("\n"); Serial3.print("New Record result "); Serial3.print(" : R"); Serial3.print(racer); Serial3.print(" : "); Serial3.print(millisToTime(record_all)); Serial3.print("\n");
+      log("\nNew Record result  : R"+String(racer)+" : "+String(millisToTime(record_all))+"\n");
     }
     if(config.SAVE_RESULTS) {
       results.write(racer,result_time);
@@ -789,18 +779,13 @@ void beep(unsigned int freq, unsigned int duration) {
   }
 }
 
-template<typename T>
-T log(T text) {
-  Serial.print(text);
-  Serial3.print(text);
+void log(String txt) {
+  Serial.print(txt);
+  Serial3.print(txt);
 }
-
-
-
 
 void parsingSeparate() {
   if (Serial3.available() > 0) {
-    Serial.print(Serial3.available());
     if (parseStage == WAIT) {
       parseStage = HEADER;
       prsHeader = "";
@@ -835,8 +820,7 @@ void SerialRouter() {
     recievedFlag = false;
     if(thisName == GET_RESULTS) {
       if(prsValue.toInt()==0) {
-        log("\nResults all"); log("\n\n");
-        results.printAll(); log("\n");
+        results.printAll(); 
       } else {
         log("\nResults for racer "); log(prsValue); log("\n\n");
         //printAllResults(prsValue.toInt()); log("\n");

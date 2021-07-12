@@ -10,8 +10,7 @@ class Config {
     Config() {
       EEPROM.get(0, FS_KEY);
       if(FS_KEY!=12346) { // First start
-        Serial.println();
-        Serial.println("First start, writing defaults...");
+        log("\n\nFirst start, writing defaults...\n");
         EEPROM.put(FS_KEY_addr, 12346);
         EEPROM.put(MODE_addr, MODE);
         EEPROM.put(LAPS_N_addr, LAPS_N);
@@ -20,7 +19,7 @@ class Config {
         EEPROM.put(SAVE_RESULTS_addr, SAVE_RESULTS);
         EEPROM.put(EXTERNAL_AUDIO_ON_addr, EXTERNAL_AUDIO_ON);
         EEPROM.put(RESULTS_EEPROM_SHIFT, RESULTS_EEPROM_SHIFT+2);
-        Serial.println("Done");
+        log("Done\n\n");
         read();
         print();
       }
@@ -36,15 +35,15 @@ class Config {
     };
 
     void print() {
-      Serial.println("Config: ");
-      Serial.print("FS_KEY: "); Serial.println(FS_KEY);
-      Serial.print("MODE: "); Serial.println(MODE);
-      Serial.print("LAPS_N: "); Serial.println(LAPS_N);
-      Serial.print("SENSOR_IGNORE_TIME: "); Serial.println(SENSOR_IGNORE_TIME);
-      Serial.print("MUTE: "); Serial.println(MUTE);
-      Serial.print("SAVE_RESULTS: "); Serial.println(SAVE_RESULTS);
-      Serial.print("EXTERNAL_AUDIO_ON: "); Serial.println(EXTERNAL_AUDIO_ON);
-      Serial.println();
+      log("\n\nConfig: ");
+      log("\nFS_KEY: "+String(FS_KEY));
+      log("\nMODE: "+String(MODE));
+      log("\nLAPS_N: "+String(LAPS_N));
+      log("\nSENSOR_IGNORE_TIME: "+String(SENSOR_IGNORE_TIME));
+      log("\nMUTE: "+String(MUTE));
+      log("\nSAVE_RESULTS: "+String(SAVE_RESULTS));
+      log("\nEXTERNAL_AUDIO_ON: "+String(EXTERNAL_AUDIO_ON));
+      log("\n\n");
     }
 
     void setMODE() {

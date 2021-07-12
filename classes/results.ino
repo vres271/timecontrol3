@@ -27,18 +27,22 @@ class Results {
       last_addr += sizeof(resultRow);
       EEPROM.put(RESULTS_EEPROM_SHIFT, last_addr);
       //Serial.print("Write to address: "); Serial.println(RESULTS_EEPROM_SHIFT + 2 + last_addr);
-      Serial.println("Result saved");
+      log("Result saved");
       return last_addr;
     }
     void printAll(int r=0) {
       unsigned int last_addr = EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
-      if(last_addr==0) return;
+      if(last_addr==0) {
+        log("\nResults is empty\n");
+        return;
+      }
+      log("\nResults\n");
+
       resultRow stored_row; 
       for(int i=0; i*sizeof(resultRow)<=(last_addr-sizeof(resultRow)); i++) {
           stored_row = read(i);
           if(r==0 || stored_row.r==r) {
-            Serial3.print(stored_row.r);Serial3.print(" ");Serial3.print(millisToTime(stored_row.t));Serial3.print("\n");
-            Serial.print(stored_row.r);Serial.print(" ");Serial.print(millisToTime(stored_row.t));Serial.print("\n");
+            log(String(stored_row.r)+" "+String(millisToTime(stored_row.t))+"\n");
           }
         if(i>99) return;
       }
@@ -79,13 +83,11 @@ class Results {
 
       }
 
-      Serial3.print("\n\n");Serial3.print("Summary");Serial3.print("\n");
-      Serial.print("\n\n");Serial.print("Summary");Serial.print("\n");
+      log("\nSummary\n");
 
       for(int i=0; i<size; i++) {
         if(summaryArray[i][1]) {
-          Serial3.print(summaryArray[i][0]);Serial3.print(" ");Serial3.print(millisToTime(summaryArray[i][1]));Serial3.print("\n");
-          Serial.print(summaryArray[i][0]);Serial.print(" ");Serial.print(millisToTime(summaryArray[i][1]));Serial.print("\n");
+          log(String(summaryArray[i][0])+" "+String(millisToTime(summaryArray[i][1]))+"\n");
           if(i<=2) {
             lcd.setCursor(0, i+1); lcd.print(i+1); lcd.print(": R"); lcd.print(summaryArray[i][0]); lcd.setCursor(8, i+1); lcd.print(": "); lcd.print(millisToTime(summaryArray[i][1]));
           }
@@ -95,7 +97,7 @@ class Results {
 
     }
     void clearAll() {
-      Serial.println("Clear all");
+      log("\nClear all\n");
       last_addr = 0;
       EEPROM.put(RESULTS_EEPROM_SHIFT, last_addr);
       //Serial.println("last_addr: ");  Serial.println(last_addr);
