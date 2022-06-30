@@ -103,4 +103,11 @@ class Results {
       //Serial.println("last_addr: ");  Serial.println(last_addr);
     }
 
+    void clearLast() {
+      log("\nClear last\n");
+      unsigned int last_addr = EEPROM.get(RESULTS_EEPROM_SHIFT, last_addr);
+      last_addr = last_addr-sizeof(resultRow);
+      if(last_addr>=0) EEPROM.put(RESULTS_EEPROM_SHIFT, last_addr);
+    }
+
 };

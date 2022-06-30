@@ -625,17 +625,17 @@ void resultsPage() {
   if(state.activeEntered) {
     results_action = 0;
     results_clear_confirm = false;
-    lcd.setCursor(0, 1); lcd.print("Show "); lcd.print(" <");
-    lcd.setCursor(0, 2); lcd.print("Print"); 
-    lcd.setCursor(0, 3); lcd.print("Clear");
+    lcd.setCursor(0, 1); lcd.print("ClrLst"); lcd.print(" <");
+    lcd.setCursor(0, 2); lcd.print("Print "); 
+    lcd.setCursor(0, 3); lcd.print("Clear ");
     state.blockedActive = true;
   }
   if(events[2].fired) { // left
     if(results_action>0) {
       results_clear_confirm = false;
-      lcd.setCursor(6, results_action+1); lcd.print("          ");
+      lcd.setCursor(7, results_action+1); lcd.print("          ");
       results_action--;
-      lcd.setCursor(6, results_action+1); lcd.print("<");
+      lcd.setCursor(7, results_action+1); lcd.print("<");
     } else { // exit to submenu
       state.blockedActive = false;
       state.setInactive();
@@ -646,25 +646,33 @@ void resultsPage() {
   if(events[3].fired) { // right
     if(results_action<2) {
       results_clear_confirm = false;
-      lcd.setCursor(6, results_action+1); lcd.print("          ");
+      lcd.setCursor(7, results_action+1); lcd.print("          ");
       results_action++;
-      lcd.setCursor(6, results_action+1); lcd.print("<");
+      lcd.setCursor(7, results_action+1); lcd.print("<");
     }
   }
   if(events[4].fired) {
     if(results_action==0) {
-      lcd.setCursor(6, results_action+1); lcd.print(">"); lcd.print(" OK ");
+      //lcd.setCursor(7, results_action+1); lcd.print(">"); lcd.print(" OK ");
+      if(!results_clear_confirm) {
+        lcd.setCursor(9, results_action+1); lcd.print(" Sure?  ");
+        results_clear_confirm = true;
+      } else {
+        results.clearLast();
+        lcd.setCursor(9, results_action+1); lcd.print(" Cleared");
+        results_clear_confirm = false;
+      }
     } else if (results_action==1) {
       results.printAll();
-      lcd.setCursor(6, results_action+1); lcd.print(">"); lcd.print(" OK : "); lcd.print(results.last_addr/sizeof(resultRow));
+      lcd.setCursor(7, results_action+1); lcd.print(">"); lcd.print(" OK : "); lcd.print(results.last_addr/sizeof(resultRow));
     } else if (results_action==2) {
-      lcd.setCursor(6, results_action+1); lcd.print(">"); 
+      lcd.setCursor(7, results_action+1); lcd.print(">"); 
       if(!results_clear_confirm) {
-        lcd.setCursor(8, results_action+1); lcd.print(" Sure?  ");
+        lcd.setCursor(9, results_action+1); lcd.print(" Sure?  ");
         results_clear_confirm = true;
       } else {
         results.clearAll();
-        lcd.setCursor(8, results_action+1); lcd.print(" Cleared");
+        lcd.setCursor(9, results_action+1); lcd.print(" Cleared");
         results_clear_confirm = false;
       }
     }
@@ -676,8 +684,8 @@ byte records_action = 0;
 boolean records_clear_confirm = false;
 
 void showRecords() {
-    lcd.setCursor(0, 1); lcd.print("Race: "); lcd.print(record_lap_racer); lcd.print(": "); lcd.print(millisToTime(record_lap));
-    lcd.setCursor(0, 2); lcd.print("Lap:  "); lcd.print(record_all_racer); lcd.print(": "); lcd.print(millisToTime(record_all));
+    lcd.setCursor(0, 1); lcd.print("Lap:"); lcd.setCursor(6, 1); lcd.print(record_lap_racer); lcd.print(":"); lcd.setCursor(10, 1); lcd.print(millisToTime(record_lap));
+    lcd.setCursor(0, 2); lcd.print("Race:"); lcd.setCursor(6, 2); lcd.print(record_all_racer); lcd.print(":"); lcd.setCursor(10, 2); lcd.print(millisToTime(record_all));
     lcd.setCursor(0, 3); lcd.print("Clear ");
 }
 
