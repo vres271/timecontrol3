@@ -13,11 +13,11 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 Encoder enc1(CLK, DT, SW);  // для работы c кнопкой
 
 // Radio Module nRF24
-#include <SPI.h>
-#include "nRF24L01.h"
-#include "RF24.h"
-RF24 radio(22,23);// Для Меги
-#define RADIO_PWR_ON 16
+// #include <SPI.h>
+// #include "nRF24L01.h"
+// #include "RF24.h"
+// RF24 radio(22,23);// Для Меги
+// #define RADIO_PWR_ON 16
 
 byte address[][6] = {"1Node", "2Node", "3Node", "4Node", "5Node", "6Node"}; //возможные номера труб
 
@@ -72,7 +72,7 @@ const char *menu[][10]  = {
 #include "classes/event.ino";
 #include "classes/config.ino";
 #include "classes/results.ino";
-#include "classes/radio.ino";
+// #include "classes/radio.ino";
 
 
 
@@ -88,7 +88,7 @@ Event events[] = {event0,event1,event2,event3,event4,event5};
 
 Config config;
 Results results;
-Radio radioModule;
+// Radio radioModule;
 
 void setup() {
 
@@ -104,7 +104,7 @@ void setup() {
 
   //initRadio();
 
-  pinMode(RADIO_PWR_ON, OUTPUT);
+  // pinMode(RADIO_PWR_ON, OUTPUT);
 
   pinMode(LASER_PWR, OUTPUT);
   pinMode(LASER_GND, OUTPUT);
@@ -115,7 +115,7 @@ void setup() {
   pinMode(LASER_SENS_S, INPUT);
   pinMode(LASER_SENS_SD, INPUT);
 
-  digitalWrite(RADIO_PWR_ON, LOW);
+  // digitalWrite(RADIO_PWR_ON, LOW);
 
   digitalWrite(LASER_PWR, HIGH);
   digitalWrite(LASER_GND, LOW);
@@ -264,7 +264,7 @@ void handler() {
         aim();
       }
       if(state.route==2 && state.subroute==4) {
-        testRadio();
+        // testRadio();
       }
 
       state.activeEntered = false;
@@ -352,18 +352,18 @@ void aim() {
 
 
 }
-void testRadio() {
+// void testRadio() {
 
-  if(state.activeEntered) {
-    radioModule.init();
-  }
+//   if(state.activeEntered) {
+//     radioModule.init();
+//   }
 
-  if(events[4].fired) {
-    radioModule.close();
-  }
+//   if(events[4].fired) {
+//     radioModule.close();
+//   }
 
 
-}
+// }
 
 
 //MODE, LAPS_N, SENSOR_IGNORE_TIME, MUTE, SAVE_RESULTS, EXTERNAL_AUDIO_ON
@@ -801,6 +801,35 @@ void parsingSeparate() {
     }
     if (parseStage == GOT_HEADER) parseStage = VALUE;
     char incoming = (char)Serial3.read();
+    if (incoming == divider) {
+      parseStage = GOT_HEADER;
+    } else if (incoming == ending) {
+      parseStage = SUCCESS;
+    }
+    if (parseStage == HEADER) {
+      prsHeader += incoming;
+    }
+    else if (parseStage == VALUE) prsValue += incoming;
+    prsTimer = millis();
+  }
+  if (parseStage == SUCCESS) {
+    for (byte i = 0; i < headers_am; i++) { if (prsHeader == headers[i]) { thisName = i; } } recievedFlag = true; parseStage = WAIT; } if ((millis() - prsTimer > 10) && (parseStage != WAIT)) {  // таймаут
+    parseStage = WAIT;
+  }
+  // if (parseStage == HEADER) {
+  //  if (millis() - prsTimer > 10 ) {
+  //    parseStage == SUCCESS;
+  //  }
+  // }
+  
+  if (Serial.available() > 0) {
+    if (parseStage == WAIT) {
+      parseStage = HEADER;
+      prsHeader = "";
+      prsValue = "";
+    }
+    if (parseStage == GOT_HEADER) parseStage = VALUE;
+    char incoming = (char)Serial.read();
     if (incoming == divider) {
       parseStage = GOT_HEADER;
     } else if (incoming == ending) {
