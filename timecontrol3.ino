@@ -96,6 +96,8 @@ void setup() {
   Serial.begin(9600); 
   Serial3.begin(9600);  Serial3.setTimeout(100);
 
+  Serial.println("\napi connect_timecontrol3");
+
   lcd.init();
   lcd.backlight();
   State state(0,1,false);
@@ -509,6 +511,7 @@ void cancelRace() {
     record_all = record_all_bck;    
     record_all_racer = record_all_racer_bck;    
     log("\nRace canceled\n");
+    Serial.println("\napi cancel "+String(racer)+" "+String(t));
 }
 
 void clearRecords() {
@@ -525,6 +528,7 @@ void race() {
     resetRace();
     setLaser(true);
     log("\nLaps: "+String(config.LAPS_N)+" : Ready...");
+    Serial.println("\napi ready "+String(racer)+" "+String(start_t)+" "+String(config.LAPS_N));
     lcd.setCursor(0, 1); lcd.print("                    "); lcd.setCursor(0, 1); lcd.print("R:"); lcd.print(racer); lcd.setCursor(6, 1); lcd.print(" L:"); lcd.setCursor(9, 1); lcd.print(config.LAPS_N); lcd.setCursor(13, 1); lcd.print(" Ready");
     lcd.setCursor(0, 2); lcd.print("SAVE TO EEPROM: "); lcd.print(config.SAVE_RESULTS?"YES":"NO"); 
   }
@@ -533,10 +537,12 @@ void race() {
     if(events[2].fired) { // left
       if(racer>0) racer--;
       lcd.setCursor(2, 1); lcd.print("     "); lcd.setCursor(2, 1); lcd.print(racer);
+      Serial.println("\napi set_racer "+String(racer)+" "+String(t));
     }
     if(events[3].fired) { // right
       if(racer<9999) racer++;
       lcd.setCursor(2, 1); lcd.print("     "); lcd.setCursor(2, 1); lcd.print(racer);
+      Serial.println("\napi set_racer "+String(racer)+" "+String(t));
     }
     if(events[1].fired) { // on sensor
       if(events[1].payloadLong > lastFixedSensorTime + config.SENSOR_IGNORE_TIME*1000) {
@@ -550,6 +556,7 @@ void race() {
         record_all_racer_bck = record_all_racer;    
         beep(800,200);
         log("\nR"+String(racer)+" started\n");
+        Serial.println("\napi start "+String(racer)+" "+String(start_t));
         lcd.setCursor(13, 1); lcd.print("Started");
         lcd.setCursor(0, 2); lcd.print("                    "); 
         lcd.setCursor(0, 3); lcd.print("Timer:              "); 
@@ -574,8 +581,8 @@ void race() {
         lap_t = events[1].payloadLong;
         laps_counter=laps_counter+1;
         beep(600,50);
+        Serial.println("\napi lap "+String(racer)+" "+String(lap_t));
         log("Lap "+String(laps_counter)+" : "+String(millisToTime(lap_duration))); 
-
         if(record_lap==0) record_lap = lap_duration;
         if(lap_duration<record_lap) {
           record_lap = lap_duration;
@@ -584,7 +591,6 @@ void race() {
           log(" New Record lap");
         }
         log("\n");
-
         lcd.setCursor(0, 2); lcd.print("Lap                 "); lcd.setCursor(4, 2); lcd.print(laps_counter);lcd.print(": "); lcd.print(millisToTime(lap_duration));
         if(laps_counter>=config.LAPS_N) {
           race_state=2;
@@ -599,6 +605,7 @@ void race() {
     beep(300,300);
     result_time = finish_t - start_t;
     log("Finished  : "+String(millisToTime(result_time))+"\n");
+    Serial.println("\napi finish "+String(racer)+" "+String(finish_t));
     if(record_all==0) record_all = result_time;
     if(result_time<record_all) {
       record_all = result_time;
@@ -788,7 +795,7 @@ void beep(unsigned int freq, unsigned int duration) {
 }
 
 void log(String txt) {
-  Serial.print(txt);
+  // Serial.print(txt);
   Serial3.print(txt);
 }
 
