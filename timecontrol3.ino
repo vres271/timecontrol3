@@ -556,7 +556,7 @@ void race() {
         record_all_racer_bck = record_all_racer;    
         beep(800,200);
         log("\nR"+String(racer)+" started\n");
-        Serial.println("\napi start "+String(racer)+" "+String(start_t));
+        Serial.println("\napi start "+String(racer)+" 0");
         lcd.setCursor(13, 1); lcd.print("Started");
         lcd.setCursor(0, 2); lcd.print("                    "); 
         lcd.setCursor(0, 3); lcd.print("Timer:              "); 
@@ -581,7 +581,7 @@ void race() {
         lap_t = events[1].payloadLong;
         laps_counter=laps_counter+1;
         beep(600,50);
-        Serial.println("\napi lap "+String(racer)+" "+String(lap_t));
+        Serial.println("\napi lap "+String(racer)+" "+String(lap_duration));
         log("Lap "+String(laps_counter)+" : "+String(millisToTime(lap_duration))); 
         if(record_lap==0) record_lap = lap_duration;
         if(lap_duration<record_lap) {
@@ -605,7 +605,7 @@ void race() {
     beep(300,300);
     result_time = finish_t - start_t;
     log("Finished  : "+String(millisToTime(result_time))+"\n");
-    Serial.println("\napi finish "+String(racer)+" "+String(finish_t));
+    Serial.println("\napi finish "+String(racer)+" "+String(result_time));
     if(record_all==0) record_all = result_time;
     if(result_time<record_all) {
       record_all = result_time;
