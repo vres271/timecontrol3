@@ -49,8 +49,8 @@ boolean laserState = false;
 
 char divider = ' ';
 char ending = ';';
-const char *headers[]  = {"getresults","getinputs","getconfig","race","save","mode","laps","level","cancel","scal","batr","mute","stimeout","<", "^", ">", "help",};
-enum names {GET_RESULTS, GET_INPUTS, GET_CONFIG, RACE, SAVE, _MODE, LAPS, LEVEL, CANCEL, SCAL, BATR, _MUTE, _STIMEOUT, LEFT, CLICK, RIGHT, HELP, };
+const char *headers[]  = {"getresults","getinputs","getconfig","race","save","mode","laps","level","cancel","scal","batr","mute","stimeout","<", "^", ">", "help","set_ready","set_racer"};
+enum names {GET_RESULTS, GET_INPUTS, GET_CONFIG, RACE, SAVE, _MODE, LAPS, LEVEL, CANCEL, SCAL, BATR, _MUTE, _STIMEOUT, LEFT, CLICK, RIGHT, HELP, SET_READY, SET_RACER, };
 names thisName;
 byte headers_am = sizeof(headers) / 2;
 uint32_t prsTimer;
@@ -873,8 +873,21 @@ void SerialRouter() {
       events[2].emit();
     } else if (thisName == RIGHT) {
       events[3].emit();
-    }  else if (thisName == CLICK) {
+    } else if (thisName == CLICK) {
+      if(state.route==0 && state.subroute==1) {
+        Serial.println("\napi in_menu");
+      }
       events[4].emit();
+    } else if (thisName == SET_READY) {
+      state.route=0; 
+      state.subroute=1;
+      state.setActive();
+    } else if (thisName == SET_RACER) {
+      if(prsValue.toInt()!=0 && race_state==0) {
+        racer = prsValue.toInt();
+        lcd.setCursor(2, 1); lcd.print("     "); lcd.setCursor(2, 1); lcd.print(racer);
+        Serial.println("\napi set_racer "+String(racer)+" "+String(t));
+      }      
     } 
     thisName = '0'; prsValue=""; parseStage = WAIT;
   }
